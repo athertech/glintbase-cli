@@ -58,6 +58,7 @@
     "@ai-sdk/google": "^3.0.79",
     "@ai-sdk/groq": "^3.0.39",
     "@ai-sdk/openai": "^3.0.65",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "ai": "^6.0.191",
     "commander": "^13.1.0",
     "conf": "^13.1.0",

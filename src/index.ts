@@ -34,6 +34,7 @@ import { modelCommand } from './commands/model.js';
 import { connectCommand } from './commands/connect.js';
 import { configCommand } from './commands/config.js';
 import { simulateCommand } from './commands/simulate.js';
+import { mcpCommand } from './commands/mcp.js';
 import { brand, renderBrandHeader } from './output/banner.js';
 import { executeCodebaseAudit } from './session/agentBrain.js';
 import { detectFramework } from './ast/frameworkDetector.js';
@@ -55,6 +56,7 @@ program.addCommand(modelCommand);
 program.addCommand(connectCommand);
 program.addCommand(configCommand);
 program.addCommand(simulateCommand);
+program.addCommand(mcpCommand);
 
 process.on('uncaughtException', (err) => {
   console.error(pc.red(`\n  Glintbase Error: ${err.message || err}\n`));
