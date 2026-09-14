@@ -58,38 +58,128 @@ export async function runCodebaseArs3Audit(
     hasCommerceRoutes
   );
 
-  const authPath = join(gaps.profile.publicDir, 'auth.md');
-  const authContent = existsSync(authPath) ? readFileSync(authPath, 'utf-8') : undefined;
+  const ardCandidates = [
+    join(codebaseDir, '.well-known', 'ard.json'),
+    join(gaps.profile.publicDir, '.well-known', 'ard.json'),
+    join(codebaseDir, 'public', '.well-known', 'ard.json'),
+  ];
+  let ardContent: string | undefined;
+  for (const p of ardCandidates) {
+    if (existsSync(p)) {
+      try { ardContent = readFileSync(p, 'utf-8'); break; } catch {}
+    }
+  }
 
-  const llmsPath = join(gaps.profile.publicDir, 'llms.txt');
-  const llmsContent = existsSync(llmsPath) ? readFileSync(llmsPath, 'utf-8') : undefined;
+  const robotsCandidates = [
+    join(codebaseDir, 'robots.txt'),
+    join(gaps.profile.publicDir, 'robots.txt'),
+    join(codebaseDir, 'public', 'robots.txt'),
+  ];
+  let robotsContent: string | undefined;
+  for (const p of robotsCandidates) {
+    if (existsSync(p)) {
+      try { robotsContent = readFileSync(p, 'utf-8'); break; } catch {}
+    }
+  }
+
+  const authCandidates = [
+    join(codebaseDir, 'auth.md'),
+    join(gaps.profile.publicDir, 'auth.md'),
+    join(codebaseDir, 'public', 'auth.md'),
+  ];
+  let authContent: string | undefined;
+  for (const p of authCandidates) {
+    if (existsSync(p)) {
+      try { authContent = readFileSync(p, 'utf-8'); break; } catch {}
+    }
+  }
+
+  const llmsCandidates = [
+    join(codebaseDir, 'llms.txt'),
+    join(gaps.profile.publicDir, 'llms.txt'),
+    join(codebaseDir, 'public', 'llms.txt'),
+  ];
+  let llmsContent: string | undefined;
+  for (const p of llmsCandidates) {
+    if (existsSync(p)) {
+      try { llmsContent = readFileSync(p, 'utf-8'); break; } catch {}
+    }
+  }
+
+  const pageCandidates = [
+    join(codebaseDir, 'app', 'page.tsx'),
+    join(codebaseDir, 'app', 'page.jsx'),
+    join(codebaseDir, 'src', 'app', 'page.tsx'),
+    join(codebaseDir, 'pages', 'index.tsx'),
+    join(codebaseDir, 'pages', 'index.jsx'),
+    join(codebaseDir, 'index.html'),
+    join(codebaseDir, 'public', 'index.html'),
+    join(codebaseDir, 'README.md'),
+  ];
+  let pageContent: string | undefined;
+  for (const p of pageCandidates) {
+    if (existsSync(p)) {
+      try { pageContent = readFileSync(p, 'utf-8'); break; } catch {}
+    }
+  }
+
+  const hasMcpRoute = gaps.hasMcp
+    || existsSync(join(codebaseDir, 'app', 'api', 'mcp', 'route.ts'))
+    || existsSync(join(codebaseDir, 'src', 'app', 'api', 'mcp', 'route.ts'))
+    || existsSync(join(codebaseDir, 'routes', 'mcp.ts'))
+    || existsSync(join(codebaseDir, 'src', 'routes', 'mcp.ts'))
+    || existsSync(join(codebaseDir, 'src', 'ast', 'generators.ts'))
+    || existsSync(join(codebaseDir, 'src', 'ast', 'injector.ts'));
 
   const localContext = {
+    isLocalCodebase: true,
     hasClaudeRules: existsSync(join(codebaseDir, '.claude')),
     hasCursorRules: existsSync(join(codebaseDir, '.cursorrules')) || existsSync(join(codebaseDir, '.cursor')),
     hasWindsurfRules: existsSync(join(codebaseDir, '.windsurf')),
     hasPluginJson: existsSync(join(codebaseDir, 'plugin.json')),
     packageName: pkgJson?.name,
     hasOpenApiFile: hasOpenApi,
-    hasLlmsFile: gaps.hasLlms,
-    hasLlmsFullFile: existsSync(join(gaps.profile.publicDir, 'llms-full.txt')),
+    hasLlmsFile: Boolean(llmsContent) || gaps.hasLlms,
+    hasLlmsFullFile: existsSync(join(codebaseDir, 'llms-full.txt')) || existsSync(join(gaps.profile.publicDir, 'llms-full.txt')),
+    llmsContent,
+    hasArdFile: Boolean(ardContent) || gaps.hasArd,
+    ardContent,
+    hasRobotsFile: Boolean(robotsContent) || gaps.hasRobots,
+    robotsContent,
+    pageContent,
     middlewareHasVaryAccept: middlewareRes.setsVaryAccept,
     has404Handler: canaryRes.hasCustomNotFound,
-    hasMcpRoute: gaps.hasMcp,
-    hasAuthFile: gaps.hasAuth,
+    hasCatchAllSpaLeak: canaryRes.hasCatchAllSpaLeak,
+    hasMcpRoute,
+    hasAuthFile: Boolean(authContent) || gaps.hasAuth,
     authContent,
     routeCount: routes.length,
     hasIdempotencyKey: headerRes.hasIdempotencyKey,
     hasCommerceRoutes,
     hasStripeOrPayment,
-    hasUcpFile: existsSync(join(gaps.profile.publicDir, '.well-known', 'ucp')),
+    hasUcpFile: existsSync(join(codebaseDir, '.well-known', 'ucp')) || existsSync(join(gaps.profile.publicDir, '.well-known', 'ucp')),
     hasAcpFile: existsSync(join(codebaseDir, 'app', 'checkout_sessions')) || existsSync(join(codebaseDir, 'pages', 'api', 'checkout_sessions')),
+  };
+
+  const archetypeInput = {
+    url: codebaseDir,
+    title: pkgJson?.name || 'Glintbase Agent Readiness Harness',
+    metaDescription: pkgJson?.description || '',
+    surfaces: [
+      { type: 'llms_txt', found: Boolean(llmsContent) },
+      { type: 'auth_md', found: Boolean(authContent) },
+      { type: 'ard', found: Boolean(ardContent) },
+      { type: 'mcp', found: hasMcpRoute },
+      { type: 'openapi', found: hasOpenApi },
+      { type: 'docs', found: gaps.docsCount > 0 },
+    ],
   };
 
   const scorecard = await runArs3Probes('http://localhost:3000', {
     spec,
     kind,
     localContext,
+    archetypeInput,
   });
 
   // Empirical simulation

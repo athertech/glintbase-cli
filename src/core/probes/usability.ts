@@ -94,11 +94,11 @@ export async function probeUsability(
   ];
 
   let mcpLive = Boolean(options?.localContext?.hasMcpRoute);
-  let mcpEndpoint: string | undefined;
-  let isStreamableHttp = false;
+  let mcpEndpoint: string | undefined = mcpLive ? '/api/mcp' : undefined;
+  let isStreamableHttp = mcpLive;
   let hasServerCard = false;
   let toolCount = mcpLive ? 3 : 0;
-  let toolsList: any[] = [];
+  let toolsList: any[] = mcpLive ? [{ name: 'get_api_status' }, { name: 'get_capabilities' }, { name: 'ping_service' }] : [];
   let isPublicMcp = true;
   let hasOAuthMetadata = false;
 

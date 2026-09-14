@@ -15,5 +15,9 @@
     "webmcp": true,
     "contentNegotiation": true,
     "markdownOutput": true
+  },
+  "trustManifest": {
+    "signedBy": "Glintbase Autonomous Registry",
+    "algorithm": "ed25519"
   }
 }

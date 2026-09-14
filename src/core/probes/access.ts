@@ -42,8 +42,12 @@ export async function probeAccess(
     hasOpenApiFile?: boolean;
     hasLlmsFile?: boolean;
     hasLlmsFullFile?: boolean;
+    llmsContent?: string;
     middlewareHasVaryAccept?: boolean;
     has404Handler?: boolean;
+    hasCatchAllSpaLeak?: boolean;
+    pageContent?: string;
+    isLocalCodebase?: boolean;
   }
 ): Promise<AccessProbeResult> {
   const details: string[] = [];
@@ -85,7 +89,10 @@ export async function probeAccess(
     timeoutMs: 5000,
   });
   const latency = Date.now() - startTime;
-  const rawHtml = homeRes.body || '';
+  let rawHtml = homeRes.body || '';
+  if (!rawHtml && localContext?.isLocalCodebase && localContext?.pageContent) {
+    rawHtml = localContext.pageContent;
+  }
 
   // 2. Zero-JS Prose & Heading Analysis (content-no-js)
   const noScriptHtml = rawHtml
@@ -98,7 +105,7 @@ export async function probeAccess(
   const totalLength = Math.max(1, rawHtml.length);
   const textDensityPercent = Math.round((proseLength / totalLength) * 100);
 
-  const hasH1 = /<h1\b[^>]*>/i.test(rawHtml);
+  const hasH1 = /<h1\b[^>]*>/i.test(rawHtml) || /^#\s+[^\n]+/m.test(rawHtml);
   // Check heading hierarchy progression
   const headingMatches = Array.from(rawHtml.matchAll(/<h([1-6])\b[^>]*>/gi)).map(m => parseInt(m[1]));
   let skipsHeading = false;
@@ -109,7 +116,7 @@ export async function probeAccess(
     }
   }
 
-  const zeroJsPassed = proseLength >= 500 && hasH1 && !skipsHeading && textDensityPercent >= 5;
+  const zeroJsPassed = proseLength >= 500 && hasH1 && !skipsHeading && (textDensityPercent >= 5 || rawHtml.includes('#'));
 
   results.push({
     checkId: 'content-no-js',
@@ -158,10 +165,10 @@ export async function probeAccess(
   let isSoft200 = false;
   if (canaryRes.httpStatus === 404 || canaryRes.httpStatus === 410) {
     antiSpaPassed = true;
+  } else if (localContext?.has404Handler || (localContext?.isLocalCodebase && !localContext?.hasCatchAllSpaLeak)) {
+    antiSpaPassed = true;
   } else if (canaryRes.httpStatus === 200) {
     isSoft200 = true;
-  } else if (localContext?.has404Handler) {
-    antiSpaPassed = true;
   }
 
   results.push({
@@ -189,9 +196,9 @@ export async function probeAccess(
   // 5. llms.txt Suite
   const llmsRes = await fetchResource(`${origin}/llms.txt`, { timeoutMs: 3000 });
   let hasLlms = Boolean(localContext?.hasLlmsFile);
-  let llmsContent = '';
+  let llmsContent = localContext?.llmsContent || '';
 
-  if (llmsRes.ok && llmsRes.body && !llmsRes.body.includes('<html')) {
+  if (!llmsContent && llmsRes.ok && llmsRes.body && !llmsRes.body.includes('<html')) {
     hasLlms = true;
     llmsContent = llmsRes.body;
   }

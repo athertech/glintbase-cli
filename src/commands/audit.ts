@@ -5,7 +5,7 @@
  */
 
 import { Command } from 'commander';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'fs';
 import { join, resolve } from 'path';
 import pc from 'picocolors';
 import { runArs3Probes } from '../core/probes/index.js';
@@ -166,9 +166,11 @@ export const auditCommand = new Command('audit')
         if (process.env.GITHUB_STEP_SUMMARY) {
           writeFileSync(process.env.GITHUB_STEP_SUMMARY, markdownReport, { encoding: 'utf8', flag: 'a' });
         }
-        console.log(`::set-output name=ars_score::${scorecard.score}`);
-        console.log(`::set-output name=ars_grade::${scorecard.grade}`);
-        console.log(`::set-output name=status::${scorecard.score >= 70 ? 'pass' : 'fail'}`);
+        if (process.env.GITHUB_OUTPUT) {
+          try {
+            appendFileSync(process.env.GITHUB_OUTPUT, `ars_score=${scorecard.score}\nars_grade=${scorecard.grade}\nstatus=${scorecard.score >= 70 ? 'pass' : 'fail'}\n`, 'utf-8');
+          } catch { /* ignore */ }
+        }
       }
 
       const threshold = opts.failUnder ?? config.failUnder;
@@ -316,9 +318,11 @@ export const auditCommand = new Command('audit')
         const mdReport = generateComprehensiveMarkdownReport(scorecard, effectiveTarget, opts);
         writeFileSync(process.env.GITHUB_STEP_SUMMARY, mdReport, { encoding: 'utf8', flag: 'a' });
       }
-      console.log(`::set-output name=ars_score::${scorecard.score}`);
-      console.log(`::set-output name=ars_grade::${scorecard.grade}`);
-      console.log(`::set-output name=status::${scorecard.score >= 70 ? 'pass' : 'fail'}`);
+      if (process.env.GITHUB_OUTPUT) {
+        try {
+          appendFileSync(process.env.GITHUB_OUTPUT, `ars_score=${scorecard.score}\nars_grade=${scorecard.grade}\nstatus=${scorecard.score >= 70 ? 'pass' : 'fail'}\n`, 'utf-8');
+        } catch { /* ignore */ }
+      }
     }
 
     const threshold = opts.failUnder ?? config.failUnder;

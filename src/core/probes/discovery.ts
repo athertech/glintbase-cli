@@ -53,6 +53,11 @@ export async function probeDiscovery(
     hasWindsurfRules?: boolean;
     hasPluginJson?: boolean;
     packageName?: string;
+    hasArdFile?: boolean;
+    ardContent?: string;
+    hasRobotsFile?: boolean;
+    robotsContent?: string;
+    isLocalCodebase?: boolean;
   }
 ): Promise<DiscoveryProbeResult> {
   const details: string[] = [];
@@ -92,7 +97,9 @@ export async function probeDiscovery(
   // ========================================================
   // 1. robots.txt AI Policy Analysis (robots-ai-policy-quality)
   // ========================================================
-  const robotsRes = await resilientFetch(`${origin}/robots.txt`, 3500);
+  const robotsRes = localContext?.robotsContent
+    ? { ok: true, body: localContext.robotsContent, status: 200 }
+    : await resilientFetch(`${origin}/robots.txt`, 3500);
   const robotsPolicy = {
     found: false,
     aiFriendly: false,
@@ -155,7 +162,9 @@ export async function probeDiscovery(
   // ========================================================
   // 2. ARD & Agent Catalogs (.well-known/ard.json, ai-catalog.json)
   // ========================================================
-  const ardRes = await resilientFetch(`${origin}/.well-known/ard.json`, 3500);
+  const ardRes = localContext?.ardContent
+    ? { ok: true, body: localContext.ardContent, status: 200 }
+    : await resilientFetch(`${origin}/.well-known/ard.json`, 3500);
   const aiCatRes = await resilientFetch(`${origin}/.well-known/ai-catalog.json`, 3500);
   const fallbackCatRes = await resilientFetch(`${origin}/ai-catalog.json`, 3500);
 
@@ -229,8 +238,12 @@ export async function probeDiscovery(
 
   // Check: ard-entries-valid (2 pts, bonus)
   let ardEntriesValid = false;
-  if (parsedArd && Array.isArray(parsedArd.entries) && parsedArd.entries.length > 0) {
-    ardEntriesValid = parsedArd.entries.every((e: any) => e.displayName && (e.mediaType || e.type) && (e.url || e.data));
+  if (parsedArd) {
+    if (Array.isArray(parsedArd.entries) && parsedArd.entries.length > 0) {
+      ardEntriesValid = parsedArd.entries.every((e: any) => e.displayName && (e.mediaType || e.type) && (e.url || e.data));
+    } else if (parsedArd.endpoints && typeof parsedArd.endpoints === 'object' && Object.keys(parsedArd.endpoints).length > 0) {
+      ardEntriesValid = true;
+    }
   }
   results.push({
     checkId: 'ard-entries-valid',

@@ -1,10 +1,16 @@
-# @glintbase/cli
+# Glintbase Agent Harness (ARS 3.0)
 
-> Glintbase Agent Harness — autonomous agent-readiness auditor, living artifacts generator & CI quality gate
+> Autonomous agent-readiness auditor, Agent Flight Simulator, living artifact generator & CI quality gate.
 
 ## Documentation
 
+- [Core Commands Handbook](https://github.com/athertech/glintbase-cli#core-commands): Comprehensive usage guides for audit, simulate, fix, and ci commands
+- [Autonomous Agent Flight Simulator](https://github.com/athertech/glintbase-cli#2-glintbase-simulate-target): Empirical agent trajectory execution for Claude Code, Cursor, and Perplexity
+- [Model Context Protocol (MCP) Guide](https://github.com/athertech/glintbase-cli#specifications--standards-supported): Streamable HTTP MCP server route, JSON-RPC 2.0, and tool schemas
+- [CI/CD Drift Shield](https://github.com/athertech/glintbase-cli#github-action-integration): GitHub Actions workflow configuration and quality gate rules
+- [Machine Authentication Handbook](/auth.md): Bearer token, client credentials, and error recovery guide
 
 ## Optional
 
 - [Full Documentation](/llms-full.txt): Complete concatenated documentation for agent ingestion
+- [Agent Resource Discovery](/.well-known/ard.json): Standard ARD v0.91 catalog manifest

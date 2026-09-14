@@ -56,8 +56,6 @@ export function setGitHubOutput(key: string, value: string | number | boolean): 
       /* ignore */
     }
   }
-  // Backwards compatibility for older GitHub runner agents
-  console.log(`::set-output name=${key}::${value}`);
 }
 
 /**

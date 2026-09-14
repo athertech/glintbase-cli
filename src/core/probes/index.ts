@@ -65,6 +65,14 @@ export interface RunProbesOptions {
     authContent?: string;
     routeCount?: number;
     hasIdempotencyKey?: boolean;
+    hasArdFile?: boolean;
+    ardContent?: string;
+    hasRobotsFile?: boolean;
+    robotsContent?: string;
+    llmsContent?: string;
+    pageContent?: string;
+    hasCatchAllSpaLeak?: boolean;
+    isLocalCodebase?: boolean;
     hasCommerceRoutes?: boolean;
     hasStripeOrPayment?: boolean;
     hasX402Header?: boolean;

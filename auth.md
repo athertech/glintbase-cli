@@ -1,3 +1,13 @@
+---
+title: Machine-Readable Authentication Guide
+version: 1.0
+auth_scheme: Bearer
+token_endpoint: https://api.glintbase.xyz/api/auth/token
+scopes:
+  - read
+  - write
+  - agent
+---
 # Machine-Readable Authentication Guide
 
 > Standardized authentication manual for autonomous AI agents integrating with @glintbase/cli.
