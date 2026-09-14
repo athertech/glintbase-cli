@@ -4,7 +4,7 @@
 
 [![Version](https://img.shields.io/npm/v/@glintbase/cli.svg?style=flat&color=3b82f6)](https://www.npmjs.com/package/@glintbase/cli)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-134%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-153%20passing-brightgreen.svg)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-blue.svg)](https://nodejs.org)
 
 ---
@@ -133,6 +133,63 @@ glintbase ci https://staging.example.com --fail-under 80
 # Run with PR drift detection against base branch
 glintbase ci . --fail-under 75 --pr-drift
 ```
+
+---
+
+### 5. `glintbase mcp`
+Launch the official **Glintbase Model Context Protocol (MCP)** Server for AI coding agents (**Claude Code**, **Cursor**, **Windsurf**, **Antigravity**).
+
+Delivers **17 composable production tools** and **9 bundled skills**:
+
+```bash
+# Default: Stdio transport for IDE integration (Claude Code, Cursor)
+glintbase mcp
+
+# Streamable HTTP SSE transport for remote agents / container workers
+glintbase mcp --http --port 3001
+```
+
+#### Connect in Claude Code (`.mcp.json`)
+```json
+{
+  "mcpServers": {
+    "glintbase": {
+      "command": "glintbase",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+#### Connect in Cursor (`~/.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "glintbase": {
+      "command": "npx",
+      "args": ["-y", "@glintbase/cli", "mcp"]
+    }
+  }
+}
+```
+
+#### The 17 MCP Tools Available to Your Agent:
+- `glintbase_audit`: Full ARS 3.0 audit across 6 pillars (Discovery, Access, Usability, Semantic, Architecture, Safety).
+- `glintbase_get_score`: Ultra-compact score card (<200 tokens).
+- `glintbase_discover_surfaces`: Discovers all machine entrypoints (`robots.txt`, `llms.txt`, `auth.md`, `ard.json`, `/api/mcp`).
+- `glintbase_simulate_flight`: Multi-agent flight simulator with structured failure diagnostics.
+- `glintbase_counterfactual_proof`: Side-by-side empirical proof card of token & latency savings.
+- `glintbase_calculate_token_tax`: Prompt bloat & context window burn multiplier calculator.
+- `glintbase_check_schema_friction`: OpenAPI/MCP parameter hallucination risk index.
+- `glintbase_generate_artifact`: Living artifact synthesizer with in-memory `ArsSandbox` validation (`robots`, `llms`, `auth`, `mcp`, `not-found`, `middleware`).
+- `glintbase_sandbox_validate`: In-memory virtual AST evaluation before writing to disk.
+- `glintbase_inspect_webmcp`: Client-side WebMCP `window.modelContext` and DOM inspector.
+- `glintbase_ci_gate`: Zero-drift CI quality gate with PR markdown comments.
+- `glintbase_get_skill` / `glintbase_install_skill`: Query or scaffold 9 bundled skills directly into repository.
+- `glintbase_audit_canaries`: Anti-SPA 404 canary auditor detecting soft-200 leaks that induce agent hallucinations.
+- `glintbase_verify_agent_auth`: WorkOS `auth.md` & RFC 9728 machine client credentials validator.
+- `glintbase_audit_mutation_safety`: Audits state-changing POST/PUT/DELETE endpoints for `Idempotency-Key` locks.
+- `glintbase_compliance_report`: Executive Board-Ready OWASP LLM Top 10 & ISO/IEC 42001 governance report.
 
 ---
 
