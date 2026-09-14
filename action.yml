@@ -1,0 +1,65 @@
+name: 'Glintbase Agent-Readiness CI Gate'
+description: 'Enterprise CI quality gate & PR drift shield for autonomous AI agents (ARS 3.0)'
+author: 'Glintbase'
+
+branding:
+  icon: 'shield'
+  color: 'orange'
+
+inputs:
+  target:
+    description: 'Target codebase path or remote URL to audit (e.g. . or https://api.example.com)'
+    required: false
+    default: '.'
+  fail-under:
+    description: 'Minimum ARS 3.0 score required to pass the CI gate'
+    required: false
+    default: '75'
+  base-branch:
+    description: 'Base git branch for PR drift comparison'
+    required: false
+    default: 'origin/main'
+  auto-commit:
+    description: 'Automatically commit remediated agent manifests to the branch'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'GitHub Token for posting sticky PR comments and annotations'
+    required: false
+    default: ${{ github.token }}
+  comment:
+    description: 'Whether to post or update a sticky ARS 3.0 scorecard comment on pull requests'
+    required: false
+    default: 'true'
+
+outputs:
+  passed:
+    description: 'Whether the agent readiness gate passed (true/false)'
+    value: ${{ steps.gate.outputs.passed }}
+  ars_score:
+    description: 'The overall ARS 3.0 agent readiness score (0-100)'
+    value: ${{ steps.gate.outputs.ars_score }}
+  archetype:
+    description: 'Detected architectural archetype'
+    value: ${{ steps.gate.outputs.archetype }}
+  drift_detected:
+    description: 'Whether agent specification drift was detected (true/false)'
+    value: ${{ steps.gate.outputs.drift_detected }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Glintbase CI Gate
+      id: gate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        CMD="npx --yes @glintbase/cli ci \"${{ inputs.target }}\" --fail-under \"${{ inputs.fail-under }}\" --base-branch \"${{ inputs.base-branch }}\""
+        if [ "${{ inputs.comment }}" = "true" ]; then
+          CMD="$CMD --comment"
+        fi
+        if [ "${{ inputs.auto-commit }}" = "true" ]; then
+          CMD="$CMD --auto-commit"
+        fi
+        eval $CMD

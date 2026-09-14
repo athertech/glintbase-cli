@@ -1,0 +1,7 @@
+# Docs Site Fixture
+
+> Developer knowledge base and guides
+
+## Documentation
+- [Quickstart](/docs/quickstart)
+- [API Reference](/docs/api-reference)

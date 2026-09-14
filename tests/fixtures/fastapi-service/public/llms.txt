@@ -1,0 +1,7 @@
+# FastAPI Microservice
+
+> High performance agent endpoints
+
+## APIs
+- [Token Auth](/auth/token)
+- [Items API](/api/v1/items)

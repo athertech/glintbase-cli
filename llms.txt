@@ -1,0 +1,10 @@
+# @glintbase/cli
+
+> Glintbase Agent Harness — autonomous agent-readiness auditor, living artifacts generator & CI quality gate
+
+## Documentation
+
+
+## Optional
+
+- [Full Documentation](/llms-full.txt): Complete concatenated documentation for agent ingestion

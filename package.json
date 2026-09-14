@@ -1,0 +1,77 @@
+{
+  "name": "@glintbase/cli",
+  "version": "3.0.0",
+  "description": "Glintbase Agent Harness — autonomous agent-readiness auditor (ARS 3.0), Flight Simulator & CI drift shield",
+  "license": "Apache-2.0",
+  "author": "Glintbase <info@glintbase.xyz>",
+  "homepage": "https://glintbase.xyz",
+  "type": "module",
+  "bin": {
+    "glintbase": "./dist/index.js",
+    "glintbase-cli": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "cli",
+    "agent-readiness",
+    "agent-harness",
+    "ars-3.0",
+    "flight-simulator",
+    "mcp",
+    "webmcp",
+    "llms-txt",
+    "auth-md",
+    "ai-agents",
+    "claude-code",
+    "cursor",
+    "perplexity",
+    "ci"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/athertech/glintbase-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/athertech/glintbase-cli/issues"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.79",
+    "@ai-sdk/google": "^3.0.79",
+    "@ai-sdk/groq": "^3.0.39",
+    "@ai-sdk/openai": "^3.0.65",
+    "ai": "^6.0.191",
+    "commander": "^13.1.0",
+    "conf": "^13.1.0",
+    "ora": "^8.2.0",
+    "picocolors": "^1.1.1",
+    "prompts": "^2.4.2",
+    "typescript": "^5.8.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.4.0",
+    "tsx": "^4.23.1",
+    "vitest": "^4.1.10"
+  }
+}

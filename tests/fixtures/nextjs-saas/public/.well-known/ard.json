@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.91",
+  "name": "Next.js SaaS Platform",
+  "description": "Developer platform with autonomous agent readiness",
+  "authentication": {
+    "type": "oauth2",
+    "token_endpoint": "/api/auth"
+  }
+}

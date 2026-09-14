@@ -1,0 +1,19 @@
+{
+  "$schema": "https://ard.glintbase.com/v0.91/schema.json",
+  "version": "0.91",
+  "name": "@glintbase/cli",
+  "endpoints": {
+    "documentation": "/llms.txt",
+    "fullDocumentation": "/llms-full.txt",
+    "robots": "/robots.txt",
+    "auth": "/auth.md",
+    "mcp": "/api/mcp",
+    "oauthMetadata": "/.well-known/oauth-protected-resource"
+  },
+  "capabilities": {
+    "mcp": true,
+    "webmcp": true,
+    "contentNegotiation": true,
+    "markdownOutput": true
+  }
+}

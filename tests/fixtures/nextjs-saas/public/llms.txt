@@ -1,0 +1,7 @@
+# Next.js SaaS Platform
+
+> Developer Platform and Agent APIs
+
+## APIs
+- [Authentication](/auth.md): Machine bearer tokens
+- [Users API](/api/users): User management endpoints
