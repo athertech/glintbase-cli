@@ -468,6 +468,42 @@ jobs:
 \`\`\`
 `,
   },
+
+  'enterprise-agent-governance': {
+    name: 'enterprise-agent-governance',
+    title: 'Enterprise Agent Security & Zero-Trust Governance',
+    description: 'Zero-Trust machine identity, soft-404 anti-hallucination barriers, mutation idempotency locks, and OWASP/ISO 42001 compliance standards.',
+    uri: 'skill://glintbase/agent-governance',
+    tags: ['enterprise', 'security', 'zero-trust', 'owasp', 'iso42001', 'idempotency'],
+    content: `---
+name: enterprise-agent-governance
+title: Enterprise Agent Security & Zero-Trust Governance
+version: 3.0.0
+standards: [OWASP-LLM-Top10, ISO-42001, RFC-7807, RFC-9728]
+---
+
+# Enterprise Agent Security & Zero-Trust Governance
+
+Autonomous AI coding agents (Claude Code, Cursor, Windsurf, Devin, Antigravity) pose new architectural attack surfaces for enterprise APIs and documentation portals.
+
+## 1. Threat Vectors Addressed
+
+1. **Soft-404 SPA Hallucination Traps (OWASP LLM07)**:
+   - When non-existent routes return HTTP 200 Single-Page App HTML shells, agents attempt to parse HTML markup as API contracts and hallucinate fake parameter schemas.
+   - **Remediation**: Implement strict 404 boundaries returning RFC 7807 Problem Details JSON (\`app/not-found.tsx\` or Express 404 middleware).
+
+2. **Un-Idempotent Machine Mutations (OWASP LLM08)**:
+   - Autonomous agent retries on state-changing endpoints (POST/PUT/DELETE) risk duplicate transactions or irreversible database updates.
+   - **Remediation**: Require \`Idempotency-Key\` / \`X-Idempotency-Key\` headers and declare \`destructiveHint: true\` on MCP tools.
+
+3. **Machine Identity & Ephemeral Credential Rotation (ISO 42001 A.6.2)**:
+   - Eliminates static API keys in agent configurations in favor of RFC 9728 machine token exchange and granular Bearer token scopes.
+   - Standardizes machine discovery via \`/auth.md\`.
+
+4. **Agent Telemetry & Audit Logging (ISO 42001 A.9.1)**:
+   - Log \`X-Agent-ID\`, TLS JA4 fingerprints, and time-to-first-tool-call (TTFTC) to trace autonomous sessions across SIEM pipelines.
+`,
+  },
 };
 
 /**

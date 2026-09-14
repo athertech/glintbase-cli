@@ -112,6 +112,21 @@ export function printSimulatorHud(
   }
   console.log(pc.cyan('│'));
 
+  // Diagnostic Failure Analysis
+  if (telemetry.failureDetails) {
+    const fd = telemetry.failureDetails;
+    console.log(pc.cyan('◇  ') + pc.bold(pc.red('Diagnostic Failure Analysis:')));
+    console.log(pc.cyan('│  ') + pc.bold('Failure Mode:          ') + pc.red(pc.bold(`[${fd.code}]`)));
+    console.log(pc.cyan('│  ') + pc.bold('Lifecycle Phase:       ') + pc.yellow(fd.phase.toUpperCase()));
+    console.log(pc.cyan('│  ') + pc.bold('Root Cause:            ') + pc.white(fd.message));
+    console.log(pc.cyan('│  ') + pc.bold('Expected Pattern:      ') + pc.dim(fd.expected));
+    if (fd.closestMatches && fd.closestMatches.length > 0) {
+      console.log(pc.cyan('│  ') + pc.bold('Suggested Candidates:  ') + pc.green(fd.closestMatches.join(', ')));
+    }
+    console.log(pc.cyan('│  ') + pc.bold('Remediation:           ') + pc.cyan(fd.remediation));
+    console.log(pc.cyan('│'));
+  }
+
   // Counterfactual Sandbox
   if (counterfactual) {
     console.log(pc.cyan('◇  ') + pc.bold('Counterfactual Sandbox (What-If Remediation):'));

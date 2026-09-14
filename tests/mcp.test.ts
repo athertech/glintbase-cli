@@ -25,7 +25,7 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
   });
 
   describe('1. Bundled Skills Registry & Disk Installer', () => {
-    it('should include all 8 core skills with complete metadata and URIs', () => {
+    it('should include all 9 core skills with complete metadata and URIs', () => {
       const expectedSkills = [
         'glintbase-agent-readiness',
         'living-artifacts-architect',
@@ -35,6 +35,7 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
         'token-tax-and-schema-optimizer',
         'flight-simulator-replay',
         'zero-drift-ci-gate',
+        'enterprise-agent-governance',
       ];
 
       for (const name of expectedSkills) {
@@ -72,7 +73,7 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
       expect(server).toBeDefined();
     });
 
-    it('should expose all 13 tools and 8 prompts/resources on the server instance', () => {
+    it('should expose all 17 tools and 9 prompts/resources on the server instance', () => {
       const server = createGlintbaseMcpServer();
       const anyServer = server as any;
 
@@ -92,6 +93,10 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
         'glintbase_ci_gate',
         'glintbase_get_skill',
         'glintbase_install_skill',
+        'glintbase_audit_canaries',
+        'glintbase_verify_agent_auth',
+        'glintbase_audit_mutation_safety',
+        'glintbase_compliance_report',
       ];
 
       for (const tool of expectedTools) {
@@ -100,15 +105,17 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
 
       // Check registered prompts
       const promptNames = Object.keys(anyServer._registeredPrompts || {});
-      expect(promptNames.length).toBe(8);
+      expect(promptNames.length).toBe(9);
       expect(promptNames).toContain('optimize-glintbase-agent-readiness');
       expect(promptNames).toContain('optimize-streamable-mcp-builder');
+      expect(promptNames).toContain('optimize-enterprise-agent-governance');
 
       // Check registered resources
       const resourceKeys = Object.keys(anyServer._registeredResources || {});
-      expect(resourceKeys.length).toBe(8);
+      expect(resourceKeys.length).toBe(9);
       expect(resourceKeys).toContain('skill://glintbase/agent-readiness');
       expect(resourceKeys).toContain('skill://glintbase/agent-auth');
+      expect(resourceKeys).toContain('skill://glintbase/agent-governance');
     });
   });
 
@@ -223,6 +230,89 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
       const res = await tool.handler({ skillName: 'streamable-mcp-builder' });
       expect(res.isError).toBeFalsy();
       expect(res.content[0].text).toContain('Streamable HTTP MCP Server Builder');
+    });
+
+    it('glintbase_audit_canaries: should audit 404 boundaries and detect soft-200 SPA leaks', async () => {
+      const tool = anyServer._registeredTools['glintbase_audit_canaries'];
+      const res = await tool.handler({ target: '.' });
+      expect(res.isError).toBeFalsy();
+
+      const parsed = JSON.parse(res.content[0].text);
+      expect(parsed.target).toBeTruthy();
+      expect(typeof parsed.spaLeakDetected).toBe('boolean');
+      expect(['SECURE', 'VULNERABLE', 'CRITICAL']).toContain(parsed.riskGrade);
+      expect(Array.isArray(parsed.findings)).toBe(true);
+    });
+
+    it('glintbase_verify_agent_auth: should validate machine credentials and WorkOS spec', async () => {
+      const tool = anyServer._registeredTools['glintbase_verify_agent_auth'];
+      const res = await tool.handler({ target: '.' });
+      expect(res.isError).toBeFalsy();
+
+      const parsed = JSON.parse(res.content[0].text);
+      expect(['VERIFIED', 'INCOMPLETE', 'MISSING']).toContain(parsed.complianceStatus);
+      expect(Array.isArray(parsed.findings)).toBe(true);
+    });
+
+    it('glintbase_audit_mutation_safety: should inspect state-changing endpoints and idempotency', async () => {
+      const tool = anyServer._registeredTools['glintbase_audit_mutation_safety'];
+      const res = await tool.handler({ target: '.' });
+      expect(res.isError).toBeFalsy();
+
+      const parsed = JSON.parse(res.content[0].text);
+      expect(parsed.totalEndpoints).toBeGreaterThanOrEqual(0);
+      expect(['LOW', 'MEDIUM', 'CRITICAL']).toContain(parsed.overallRiskLevel);
+      expect(parsed.recommendedMiddlewareCode).toContain('idempotency');
+    });
+
+    it('glintbase_compliance_report: should generate board-ready OWASP & ISO 42001 assessment', async () => {
+      const tool = anyServer._registeredTools['glintbase_compliance_report'];
+      const res = await tool.handler({ target: '.' });
+      expect(res.isError).toBeFalsy();
+
+      const parsed = JSON.parse(res.content[0].text);
+      expect(parsed.securityScore).toBeGreaterThanOrEqual(0);
+      expect(parsed.grade).toMatch(/^[A-F]/);
+      expect(Array.isArray(parsed.owaspCompliance)).toBe(true);
+      expect(parsed.owaspCompliance.some((o: any) => o.code === 'LLM01')).toBe(true);
+      expect(Array.isArray(parsed.iso42001Compliance)).toBe(true);
+      expect(parsed.executiveMarkdown).toContain('Glintbase Executive Security');
+    });
+
+    it('glintbase_generate_artifact: should synthesize not-found route and middleware', async () => {
+      const tool = anyServer._registeredTools['glintbase_generate_artifact'];
+
+      // not-found
+      const nfRes = await tool.handler({ spec: 'not-found', writeToDisk: false });
+      expect(nfRes.isError).toBeFalsy();
+      const nfParsed = JSON.parse(nfRes.content[0].text);
+      expect(nfParsed.spec).toBe('not-found');
+      expect(nfParsed.fullContent).toContain('404');
+
+      // middleware
+      const mwRes = await tool.handler({ spec: 'middleware', writeToDisk: false });
+      expect(mwRes.isError).toBeFalsy();
+      const mwParsed = JSON.parse(mwRes.content[0].text);
+      expect(mwParsed.spec).toBe('middleware');
+      expect(mwParsed.fullContent).toContain('middleware');
+    });
+
+    it('glintbase_simulate_flight: should return failure mode diagnostics for unmatched intent', async () => {
+      const tool = anyServer._registeredTools['glintbase_simulate_flight'];
+      const res = await tool.handler({
+        target: '.',
+        persona: 'claude-code',
+        intent: 'Teleport to galaxy center and drain hyperdrive batteries',
+      });
+      expect(res.isError).toBeFalsy();
+
+      const parsed = JSON.parse(res.content[0].text);
+      expect(parsed.outcome).toBe('blocked');
+      expect(parsed.failureMode).toBe('INTENT_UNMATCHED_ENDPOINT');
+      expect(parsed.failureDetails).toBeDefined();
+      expect(parsed.failureDetails.code).toBe('INTENT_UNMATCHED_ENDPOINT');
+      expect(parsed.failureDetails.phase).toBe('execution');
+      expect(parsed.failureDetails.remediation).toBeTruthy();
     });
   });
 });

@@ -41,8 +41,16 @@ export class CounterfactualHarness {
       fixedBottlenecks.push('Missing /auth.md specification');
     }
 
-    if (!remediatedContext.mcpManifest || !remediatedContext.mcpTools || remediatedContext.mcpTools.length === 0) {
+    if (remediatedContext.hasCanaryLeak) {
+      remediatedContext.hasCanaryLeak = false;
+      remediatedContext.has404Handler = true;
+      fixedBottlenecks.push('Anti-SPA 404 handler');
+    }
+
+    const hasStatusTool = (remediatedContext.mcpTools || []).some(t => t.name.includes('status'));
+    if (!hasStatusTool) {
       remediatedContext.mcpTools = [
+        ...(remediatedContext.mcpTools || []),
         {
           name: 'get_target_status',
           description: 'Get operational status and telemetry for target',

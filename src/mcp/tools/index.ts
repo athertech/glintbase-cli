@@ -1,7 +1,7 @@
 /**
  * Glintbase MCP Tool Suite (ARS 3.0)
  *
- * 13 Composable, Production-Grade MCP Tools:
+ * 17 Composable, Production-Grade MCP Tools:
  * 1.  glintbase_audit                 Full ARS 3.0 audit (AST + live probes, dynamic denominator)
  * 2.  glintbase_get_score             Ultra-compact score card (<200 tokens)
  * 3.  glintbase_discover_surfaces     Machine entrypoint detection matrix
@@ -15,6 +15,10 @@
  * 11. glintbase_ci_gate               Zero-drift CI quality gate with PR markdown comments
  * 12. glintbase_get_skill             Retrieve full markdown skill playbook
  * 13. glintbase_install_skill         Scaffold .agents/skills/<name>/SKILL.md directly to workspace
+ * 14. glintbase_audit_canaries        Detect soft-200 SPA leaks & anti-hallucination barriers
+ * 15. glintbase_verify_agent_auth     Validate WorkOS auth.md & RFC 9728 machine credentials
+ * 16. glintbase_audit_mutation_safety Audit Idempotency-Key locks & mutation hints on POST/PUT/DELETE
+ * 17. glintbase_compliance_report     Executive Board-Ready OWASP LLM Top 10 & ISO 42001 assessment
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -30,6 +34,8 @@ import {
   generateAuthMd,
   generateArdJson,
   generateMcpRoute,
+  generateNotFoundRoute,
+  generateMiddleware,
 } from '../../ast/generators.js';
 import { getWebMcpComponentTemplate } from '../../ast/injector.js';
 import { generateLlmsTxt, generateLlmsFullTxt, indexDocumentation } from '../../ast/docIndexer.js';
@@ -39,6 +45,10 @@ import { analyzeTokenTax, estimateTokenCount } from '../../simulator/telemetry/t
 import { evaluateSchemaFriction } from '../../simulator/telemetry/schemaFriction.js';
 import { inspectGitDrift, formatGitHubStepSummary } from '../../commands/ci.js';
 import { BUNDLED_SKILLS, installSkillToDisk } from '../skills/index.js';
+import { auditCanaryRoutes } from '../../core/security/canaryAuditor.js';
+import { verifyAgentAuth } from '../../core/security/authVerifier.js';
+import { auditMutationSafety } from '../../core/security/mutationAuditor.js';
+import { generateComplianceReport } from '../../core/security/complianceReporter.js';
 
 export function registerAllTools(server: McpServer): void {
   // ── 1. glintbase_audit ──────────────────────────────────────────────────────────
@@ -232,6 +242,8 @@ export function registerAllTools(server: McpServer): void {
           schemaFrictionScore: tel.schemaFrictionScore,
           hallucinationRisk: tel.schemaFrictionScore > 50 ? 'HIGH' : tel.schemaFrictionScore > 25 ? 'MEDIUM' : 'LOW',
           failureBottleneck: tel.failureBottleneck || null,
+          failureMode: tel.failureMode || null,
+          failureDetails: tel.failureDetails || null,
           suggestedRemediation: tel.suggestedRemediation || null,
           stepsSummary: tel.steps.map(s => `[${s.action}] ${s.details} (${s.status})`),
           ...(verbose ? { detailedSteps: tel.steps } : {}),
@@ -418,9 +430,9 @@ export function registerAllTools(server: McpServer): void {
   // ── 8. glintbase_generate_artifact ─────────────────────────────────────────────
   server.tool(
     'glintbase_generate_artifact',
-    `Synthesize a production-ready living agent artifact (robots, llms, llms-full, auth, mcp, webmcp, ard). Validates the generated code in-memory with ArsSandbox before returning. Set writeToDisk=true to automatically write to standard project paths (e.g. public/llms.txt, app/api/mcp/route.ts).`,
+    `Synthesize a production-ready living agent artifact (robots, llms, llms-full, auth, mcp, webmcp, ard, not-found, middleware). Validates the generated code in-memory with ArsSandbox before returning. Set writeToDisk=true to automatically write to standard project paths (e.g. public/llms.txt, app/api/mcp/route.ts, app/not-found.tsx).`,
     {
-      spec: z.enum(['robots', 'llms', 'llms-full', 'auth', 'mcp', 'webmcp', 'ard']).describe('Artifact to generate'),
+      spec: z.enum(['robots', 'llms', 'llms-full', 'auth', 'mcp', 'webmcp', 'ard', 'not-found', 'middleware']).describe('Artifact to generate'),
       framework: z.enum(['next-app-router', 'next-pages', 'express', 'vite', 'generic']).optional().describe('Target framework (auto-detected if omitted)'),
       writeToDisk: z.boolean().optional().describe('If true, writes the generated artifact to disk (default: false)'),
       targetDir: z.string().optional().describe('Target codebase directory (default: ".")'),
@@ -464,6 +476,14 @@ export function registerAllTools(server: McpServer): void {
           case 'ard':
             content = generateArdJson({ name: gaps.profile.name, hasMcp: gaps.hasMcp, hasAuth: gaps.hasAuth });
             targetPath = '.well-known/ard.json';
+            break;
+          case 'not-found':
+            content = generateNotFoundRoute(activeFramework as any);
+            targetPath = activeFramework.startsWith('next') ? 'app/not-found.tsx' : 'routes/not-found.ts';
+            break;
+          case 'middleware':
+            content = generateMiddleware();
+            targetPath = 'middleware.ts';
             break;
         }
 
@@ -725,6 +745,94 @@ export function registerAllTools(server: McpServer): void {
           message: `Installed "${installResult.skill.title}" to ${installResult.path}. Your coding agent can now load this skill automatically!`,
         };
 
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: err.message }) }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ── 14. glintbase_audit_canaries ───────────────────────────────────────────────
+  server.tool(
+    'glintbase_audit_canaries',
+    `Audit a codebase or live URL for soft-200 SPA leaks that cause autonomous AI agents to hallucinate fake endpoints. Probes non-existent routes and inspects AST for dedicated 404 boundaries (app/not-found.tsx, pages/404.tsx).`,
+    {
+      target: z.string().optional().describe('Target codebase directory or URL (default: ".")'),
+    },
+    async ({ target = '.' }) => {
+      try {
+        const result = await auditCanaryRoutes(target);
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: err.message }) }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ── 15. glintbase_verify_agent_auth ────────────────────────────────────────────
+  server.tool(
+    'glintbase_verify_agent_auth',
+    `Validate autonomous agent authentication readiness conforming to WorkOS auth.md and RFC 9728 specifications. Verifies machine credential exchange, Bearer token protocols, rate-limit headers, and session revocation endpoints.`,
+    {
+      target: z.string().optional().describe('Target codebase directory or URL (default: ".")'),
+    },
+    async ({ target = '.' }) => {
+      try {
+        const result = await verifyAgentAuth(target);
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: err.message }) }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ── 16. glintbase_audit_mutation_safety ────────────────────────────────────────
+  server.tool(
+    'glintbase_audit_mutation_safety',
+    `Audit state-changing API endpoints (POST/PUT/DELETE/PATCH) for Idempotency-Key locks, critical financial risks, and MCP mutation safety annotations (destructiveHint, readOnlyHint). Prevents duplicate agent transactions during retry loops.`,
+    {
+      target: z.string().optional().describe('Target codebase directory (default: ".")'),
+    },
+    async ({ target = '.' }) => {
+      try {
+        const result = auditMutationSafety(target);
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ error: err.message }) }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ── 17. glintbase_compliance_report ────────────────────────────────────────────
+  server.tool(
+    'glintbase_compliance_report',
+    `Generate an executive Board-Ready Zero-Trust AI Agent Compliance Assessment mapped to OWASP Top 10 for LLMs/Agents (LLM01, LLM07, LLM08) and ISO/IEC 42001 AI Management System (Clauses A.6.2, A.8.4, A.9.1).`,
+    {
+      target: z.string().optional().describe('Target codebase directory (default: ".")'),
+    },
+    async ({ target = '.' }) => {
+      try {
+        const result = await generateComplianceReport(target);
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };

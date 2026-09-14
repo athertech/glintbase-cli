@@ -39,6 +39,15 @@ export interface TrajectoryStep {
   };
 }
 
+export type IntentFailureMode =
+  | 'INTENT_UNMATCHED_ENDPOINT'
+  | 'AUTH_HANDSHAKE_MISSING'
+  | 'MUTATION_SAFETY_MISSING'
+  | 'RATE_LIMIT_VULNERABLE'
+  | 'SCHEMA_TYPE_MISMATCH'
+  | 'SOFT_404_TRAP'
+  | 'NONE';
+
 export interface SimulationTelemetry {
   outcome: TrajectoryOutcome;
   totalDurationMs: number;
@@ -48,6 +57,15 @@ export interface SimulationTelemetry {
   schemaFrictionScore: number; // 0 (flawless) to 100 (hostile)
   steps: TrajectoryStep[];
   failureBottleneck?: string;
+  failureMode?: IntentFailureMode;
+  failureDetails?: {
+    code: IntentFailureMode;
+    message: string;
+    phase: StepPhase;
+    expected: string;
+    remediation: string;
+    closestMatches?: string[];
+  };
   suggestedRemediation?: {
     command: string;
     file: string;
@@ -91,4 +109,6 @@ export interface TargetContext {
     destructiveHint?: boolean;
   }>;
   openApiSpec?: any;
+  hasCanaryLeak?: boolean;
+  has404Handler?: boolean;
 }
