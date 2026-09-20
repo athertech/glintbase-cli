@@ -36,6 +36,7 @@ export const auditCommand = new Command('audit')
   .option('--spec <standard>', 'Audit standard: ars (full 119 checks) | strict | core', 'ars')
   .option('--kind <kind>', 'Force site kind: product | docs | ecommerce | auto', 'auto')
   .option('--simulate', 'Run empirical agent simulation in-memory', false)
+  .option('--mode <mode>', 'Simulation mode: deterministic | live', 'deterministic')
   .option('-v, --verbose', 'Display all 119 check results line-by-line', false)
   .option('--profile <profile>', 'Audit depth: quick | deep', 'deep')
   .option('--offline', 'Force offline deterministic AST & probe execution (no LLM calls)', false)
@@ -79,7 +80,7 @@ export const auditCommand = new Command('audit')
       });
 
       if (opts.simulate) {
-        simResult = await runSimulation({ target: codebaseDir, agent: 'claude-code' });
+        simResult = await runSimulation({ target: codebaseDir, agent: 'claude-code', mode: opts.mode || 'deterministic' });
         scorecard.simulation = {
           passed: simResult.telemetry.outcome === 'completed',
           durationMs: simResult.telemetry.totalDurationMs,
@@ -95,13 +96,31 @@ export const auditCommand = new Command('audit')
       }
     } else {
       // 2. Live Remote URL Mode
+      // Preflight reachability check: cleanly abort on DNS failure, connection refused, or connect timeout
+      const preflight = await fetchResource(effectiveTarget, {
+        method: 'GET',
+        timeoutMs: 8000,
+        allowErrorBody: true,
+      });
+
+      const isUnreachable = Boolean(
+        preflight.networkError || (
+          !preflight.httpStatus && (preflight.status === 'timeout' || preflight.status === 'failed' || preflight.status === 'unreachable' || preflight.status === 'blocked')
+        )
+      );
+
+      if (isUnreachable) {
+        console.error(pc.red(`\n  ✖ Target unreachable: ${preflight.error || `Failed to connect to ${effectiveTarget}`}\n`));
+        process.exit(2);
+      }
+
       scorecard = await runArs3Probes(effectiveTarget, {
         spec,
         kind,
       });
 
       if (opts.simulate) {
-        simResult = await runSimulation({ target: effectiveTarget, agent: 'claude-code' });
+        simResult = await runSimulation({ target: effectiveTarget, agent: 'claude-code', mode: opts.mode || 'deterministic' });
         scorecard.simulation = {
           passed: simResult.telemetry.outcome === 'completed',
           durationMs: simResult.telemetry.totalDurationMs,
@@ -250,7 +269,7 @@ export const auditCommand = new Command('audit')
         target: effectiveTarget,
         agentName: simResult.persona.name,
         contextTokens: simResult.persona.maxContextTokens,
-        mode: 'deterministic',
+        mode: opts.mode || 'deterministic',
         intent: 'Audit Empirical Verification'
       });
     } else if (scorecard.simulation) {

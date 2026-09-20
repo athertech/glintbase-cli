@@ -134,7 +134,7 @@ export function printScorecardHud(
 
   console.log(`  ${pc.dim('┌' + '─'.repeat(width))}`);
   console.log(`  ${pc.dim('│')}  ${pc.bold('OVERALL SCORE:')} ${color(pc.bold(`${score} / 100`))}`);
-  console.log(`  ${pc.dim('│')}  ${pc.bold('GRADE        :')} ${color(pc.bold(`${band}`))} ${pc.dim(`(${label}) · Certified Autonomous Ready`)}`);
+  console.log(`  ${pc.dim('│')}  ${pc.bold('GRADE        :')} ${color(pc.bold(`${band}`))} ${pc.dim(`(${label})`)}`);
   console.log(`  ${pc.dim('│')}  ${pc.bold('HEALTH METER :')} ${renderProgressBar(score, 100, 24)}`);
 
   if (layers && layers.length > 0) {

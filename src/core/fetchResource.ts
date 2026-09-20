@@ -22,6 +22,8 @@ export interface FetchResourceOptions {
   headers?: Record<string, string>;
   probeOnly?: boolean;
   retries?: number;
+  /** When true, reads the response body even for HTTP 4xx/5xx status codes */
+  allowErrorBody?: boolean;
 }
 
 export interface FetchResourceResult {
@@ -34,6 +36,8 @@ export interface FetchResourceResult {
   url: string;
   finalUrl?: string;
   bytes?: number;
+  networkError?: boolean;
+  error?: string;
 }
 
 const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -149,7 +153,13 @@ export async function fetchResource(
     res.headers.forEach((val, key) => {
       responseHeaders[key.toLowerCase()] = val;
     });
-    const exists = (httpStatus >= 200 && httpStatus < 400) || httpStatus === 401 || httpStatus === 403;
+    const isSse = Boolean(contentType?.toLowerCase().includes('text/event-stream'));
+    const isError = httpStatus >= 400;
+    const exists =
+      (httpStatus >= 200 && httpStatus < 400) ||
+      httpStatus === 401 ||
+      httpStatus === 403 ||
+      (options.allowErrorBody && isError);
 
     if (!exists) {
       return {
@@ -165,13 +175,47 @@ export async function fetchResource(
 
     if (options.probeOnly || method === 'HEAD') {
       return {
-        ok: true,
-        status: 'ok',
+        ok: !isError,
+        status: isError ? (httpStatus === 404 ? 'soft_404' : 'unreachable') : 'ok',
         httpStatus,
         contentType,
         headers: responseHeaders,
         url: safeUrl,
         finalUrl: currentUrl,
+      };
+    }
+
+    if (isSse && res.body) {
+      const reader = res.body.getReader();
+      let sseBody = '';
+      try {
+        const readPromise = reader.read();
+        const sseTimeout = new Promise<{ done: boolean; value?: Uint8Array }>((resolve) =>
+          setTimeout(() => resolve({ done: true }), 800)
+        );
+        const chunk = await Promise.race([readPromise, sseTimeout]);
+        if (chunk && chunk.value) {
+          sseBody = new TextDecoder('utf-8', { fatal: false }).decode(chunk.value);
+        }
+      } catch {
+        /* non-fatal stream abort */
+      } finally {
+        try {
+          await reader.cancel();
+        } catch {
+          /* ignore cancel error */
+        }
+      }
+      return {
+        ok: httpStatus >= 200 && httpStatus < 400,
+        status: httpStatus >= 200 && httpStatus < 400 ? 'ok' : 'unreachable',
+        httpStatus,
+        contentType,
+        headers: responseHeaders,
+        url: safeUrl,
+        finalUrl: currentUrl,
+        body: sseBody,
+        bytes: sseBody.length,
       };
     }
 
@@ -185,6 +229,20 @@ export async function fetchResource(
         headers: responseHeaders,
         url: safeUrl,
         finalUrl: currentUrl,
+        bytes: text.length,
+      };
+    }
+
+    if (isError) {
+      return {
+        ok: false,
+        status: httpStatus === 404 ? 'soft_404' : 'unreachable',
+        httpStatus,
+        contentType,
+        headers: responseHeaders,
+        url: safeUrl,
+        finalUrl: currentUrl,
+        body: text,
         bytes: text.length,
       };
     }
@@ -239,6 +297,8 @@ export async function fetchResource(
         ok: false,
         status: isAbort ? 'timeout' : 'failed',
         url: safeUrl,
+        networkError: true,
+        error: isAbort ? `Connection timed out after ${timeoutMs}ms` : (err?.message || String(err)),
       };
     } finally {
       clearTimeout(timer);
@@ -250,5 +310,7 @@ export async function fetchResource(
     ok: false,
     status: isAbort ? 'timeout' : 'failed',
     url: safeUrl,
+    networkError: true,
+    error: isAbort ? `Connection timed out after ${timeoutMs}ms` : (lastError?.message || String(lastError || 'Network request failed')),
   };
 }

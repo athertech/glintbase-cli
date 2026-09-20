@@ -6,7 +6,7 @@
 export type PersonaType = 'claude-code' | 'cursor' | 'perplexity';
 export type SimulationMode = 'deterministic' | 'live';
 export type StepStatus = 'pass' | 'warn' | 'fail' | 'skip';
-export type TrajectoryOutcome = 'completed' | 'blocked' | 'hallucinated' | 'timed_out';
+export type TrajectoryOutcome = 'completed' | 'blocked' | 'hallucinated' | 'timed_out' | 'failed' | 'partial';
 export type StepPhase = 'discovery' | 'ingestion' | 'auth' | 'execution' | 'recovery';
 
 export interface SimulationOptions {

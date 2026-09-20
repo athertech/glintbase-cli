@@ -27,6 +27,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { runCodebaseArs3Audit } from '../../core/codebaseAudit.js';
+import { runArs3Probes } from '../../core/probes/index.js';
+import { resolveAuditTarget } from '../../core/urlPolicy.js';
 import { inspectWorkspaceGaps } from '../../session/agentBrain.js';
 import { scanRoutes } from '../../ast/routeScanner.js';
 import {
@@ -40,7 +42,13 @@ import {
 import { getWebMcpComponentTemplate } from '../../ast/injector.js';
 import { generateLlmsTxt, generateLlmsFullTxt, indexDocumentation } from '../../ast/docIndexer.js';
 import { ArsSandbox } from '../../core/sandbox.js';
-import { runSimulation } from '../../simulator/index.js';
+import {
+  runSimulation,
+  generateJourneyTreeSvg,
+  svgToBase64,
+  buildReplayUrl,
+  generateClaudeArtifactCode,
+} from '../../simulator/index.js';
 import { analyzeTokenTax, estimateTokenCount } from '../../simulator/telemetry/tokenTax.js';
 import { evaluateSchemaFriction } from '../../simulator/telemetry/schemaFriction.js';
 import { inspectGitDrift, formatGitHubStepSummary } from '../../commands/ci.js';
@@ -62,8 +70,11 @@ export function registerAllTools(server: McpServer): void {
     },
     async ({ target = '.', failUnder, verbose = false }) => {
       try {
-        const targetDir = resolve(process.cwd(), target);
-        const scorecard = await runCodebaseArs3Audit(targetDir);
+        const targetInfo = resolveAuditTarget(target);
+        const effectiveTarget = targetInfo.isUrl ? (targetInfo.normalizedUrl || targetInfo.target) : targetInfo.target;
+        const scorecard = targetInfo.isUrl
+          ? await runArs3Probes(effectiveTarget)
+          : await runCodebaseArs3Audit(effectiveTarget);
 
         const blockers = (scorecard.results || [])
           .filter(c => c.status === 'fail' || c.status === 'warn')
@@ -88,7 +99,7 @@ export function registerAllTools(server: McpServer): void {
         }));
 
         const summary = {
-          target: targetDir,
+          target: effectiveTarget,
           archetype: scorecard.archetype.label,
           grade: scorecard.grade,
           score: scorecard.score,
@@ -123,16 +134,19 @@ export function registerAllTools(server: McpServer): void {
     'glintbase_get_score',
     `Fetch an ultra-compact ARS 3.0 score card (<200 tokens). Ideal for quick checks and CI status monitoring without burning agent context window.`,
     {
-      target: z.string().optional().describe('Target codebase directory (default: ".")'),
+      target: z.string().optional().describe('Target codebase directory or URL (default: ".")'),
       failUnder: z.number().optional().describe('Optional quality gate threshold (e.g. 75)'),
     },
     async ({ target = '.', failUnder = 75 }) => {
       try {
-        const targetDir = resolve(process.cwd(), target);
-        const scorecard = await runCodebaseArs3Audit(targetDir);
+        const targetInfo = resolveAuditTarget(target);
+        const effectiveTarget = targetInfo.isUrl ? (targetInfo.normalizedUrl || targetInfo.target) : targetInfo.target;
+        const scorecard = targetInfo.isUrl
+          ? await runArs3Probes(effectiveTarget)
+          : await runCodebaseArs3Audit(effectiveTarget);
 
         const result = {
-          target: targetDir,
+          target: effectiveTarget,
           score: scorecard.score,
           grade: scorecard.grade,
           archetype: scorecard.archetype.label,
@@ -216,22 +230,29 @@ export function registerAllTools(server: McpServer): void {
     'glintbase_simulate_flight',
     `Run the Glintbase Agent Flight Simulator across synthetic coding personas (claude-code, cursor, perplexity). Simulates how autonomous agents navigate your docs/APIs, evaluates breadcrumb traces, detects soft-404 traps, and calculates the hallucination risk score.`,
     {
-      target: z.string().optional().describe('Target codebase directory (default: ".")'),
+      target: z.string().optional().describe('Target codebase directory or URL (default: ".")'),
       persona: z.enum(['claude-code', 'cursor', 'perplexity']).optional().describe('Agent persona to simulate (default: claude-code)'),
       intent: z.string().optional().describe('Developer intent to attempt (e.g. "Authenticate and call payment endpoint")'),
+      mode: z.enum(['deterministic', 'live']).optional().describe('Simulation mode: deterministic | live (default: deterministic)'),
       verbose: z.boolean().optional().describe('Include full step-by-step breadcrumb logs'),
     },
-    async ({ target = '.', persona = 'claude-code', intent, verbose = false }) => {
+    async ({ target = '.', persona = 'claude-code', intent, mode = 'deterministic', verbose = false }) => {
       try {
-        const targetDir = resolve(process.cwd(), target);
+        const targetInfo = resolveAuditTarget(target);
+        const effectiveTarget = targetInfo.isUrl ? (targetInfo.normalizedUrl || targetInfo.target) : targetInfo.target;
         const simResult = await runSimulation({
-          target: targetDir,
+          target: effectiveTarget,
           agent: persona as any,
           intent,
-          mode: 'deterministic',
+          mode: mode as any,
         });
 
         const tel = simResult.telemetry;
+        const replayUrl = buildReplayUrl(effectiveTarget, tel, simResult.persona.name);
+        const svg = generateJourneyTreeSvg(tel, simResult.persona.name, effectiveTarget, replayUrl);
+        const svgBase64 = svgToBase64(svg);
+        const artifactCode = generateClaudeArtifactCode(svg, tel, simResult.persona.name, effectiveTarget, replayUrl);
+
         const result = {
           persona: simResult.persona.name,
           intent: intent || 'Autonomous API exploration & authentication',
@@ -245,12 +266,29 @@ export function registerAllTools(server: McpServer): void {
           failureMode: tel.failureMode || null,
           failureDetails: tel.failureDetails || null,
           suggestedRemediation: tel.suggestedRemediation || null,
+          replayUrl,
           stepsSummary: tel.steps.map(s => `[${s.action}] ${s.details} (${s.status})`),
           ...(verbose ? { detailedSteps: tel.steps } : {}),
         };
 
+        const markdownVisual = `### 🕹️ Glintbase Visual Flight Simulator (${simResult.persona.name})
+**Target**: \`${effectiveTarget}\` | **Outcome**: **${tel.outcome.toUpperCase()}** | **Tokens**: ${tel.totalTokensBurned.toLocaleString()} | **Friction**: ${tel.schemaFrictionScore}/100
+
+[🕹️ Open Full Interactive Cockpit Replay](${replayUrl})
+
+<details>
+<summary><b>View Visual Journey Tree Diagram (SVG / Artifact)</b></summary>
+
+${artifactCode}
+
+</details>`;
+
         return {
-          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+          content: [
+            { type: 'text' as const, text: JSON.stringify(result, null, 2) },
+            { type: 'image' as const, data: svgBase64, mimeType: 'image/svg+xml' },
+            { type: 'text' as const, text: markdownVisual },
+          ],
         };
       } catch (err: any) {
         return {

@@ -435,8 +435,8 @@ export class DeterministicEngine {
         ttftcMs = Date.now() - startTime;
       } else {
         p4Tokens = 100;
-        p4Status = 'warn';
-        p4Details = 'No tools available to execute; simulated query against root endpoint';
+        p4Status = 'fail';
+        p4Details = 'No tools available to execute; cannot dispatch tool';
       }
     }
 
@@ -494,11 +494,24 @@ export class DeterministicEngine {
     const outputTokens = Math.round(totalTokens * 0.25);
     const dollarTaxUsd = calculateDollarTax(inputTokens, outputTokens);
 
+    const hasFail = steps.some(s => s.status === 'fail');
+    const hasWarn = steps.some(s => s.status === 'warn');
+
     let outcome: TrajectoryOutcome = 'completed';
     if (failureBottleneck) {
-      outcome = failureMode === 'SOFT_404_TRAP' || failureMode === 'SCHEMA_TYPE_MISMATCH' ? 'hallucinated' : 'blocked';
-    } else if (frictionScore > 70) {
-      outcome = 'hallucinated';
+      if (failureMode === 'SOFT_404_TRAP' || failureMode === 'SCHEMA_TYPE_MISMATCH') {
+        outcome = 'hallucinated';
+      } else {
+        outcome = 'blocked';
+      }
+    } else if (p4Status === 'fail' || (!parsedIntent && availableTools.length === 0)) {
+      outcome = 'failed';
+    } else if (hasFail) {
+      outcome = 'failed';
+    } else if (hasWarn || frictionScore > 60) {
+      outcome = 'partial';
+    } else {
+      outcome = 'completed';
     }
 
     let suggestedRemediation = undefined;
@@ -513,7 +526,7 @@ export class DeterministicEngine {
         ],
         rationale: failureDetails.message
       };
-    } else if (outcome === 'blocked' || p1Status === 'warn' || p3Status === 'warn') {
+    } else if (outcome === 'blocked' || outcome === 'failed' || outcome === 'partial' || p1Status === 'warn' || p3Status === 'warn') {
       suggestedRemediation = {
         command: 'glintbase fix --agent',
         file: !targetContext.llmsTxt ? 'public/llms.txt' : 'public/auth.md',

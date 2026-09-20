@@ -4,7 +4,7 @@
 
 [![Version](https://img.shields.io/npm/v/@glintbase/cli.svg?style=flat&color=3b82f6)](https://www.npmjs.com/package/@glintbase/cli)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-153%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-158%20passing-brightgreen.svg)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-blue.svg)](https://nodejs.org)
 
 ---
@@ -93,6 +93,7 @@ glintbase simulate https://api.example.com --json
 
 **Simulator Capabilities:**
 - **Personas Supported**: `claude-code`, `cursor`, `perplexity`.
+- **Multi-Modal Visual Engine**: In-chat SVG journey trees (`image/svg+xml`) rendered inline for Claude/Cursor, plus deflated `#data=` state hash links for instant interactive cockpit replay at `https://scan.glintbase.dev/simulate#data=...`.
 - **Token Tax & Dollar Cost**: Real-time dollar cost calculated per agent session ($3/M in, $15/M out).
 - **Schema Friction Index**: 0 (Flawless) to 100 (Hostile) scoring tool input schemas for missing required parameters, parameter/description unit contradictions, and ambiguous types.
 - **Counterfactual "What-If" Sandbox**: Mounts virtual fixes in-memory to prove exact token savings and latency reductions before touching disk.
@@ -147,6 +148,10 @@ glintbase mcp
 
 # Streamable HTTP SSE transport for remote agents / container workers
 glintbase mcp --http --port 3001
+
+# Instant Public Tunnel: Spawns an ephemeral Cloudflare Quick Tunnel
+# (Provides a public https://...trycloudflare.com endpoint with zero config)
+glintbase mcp --share
 ```
 
 #### Connect in Claude Code (`.mcp.json`)

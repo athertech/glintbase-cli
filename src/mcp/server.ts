@@ -60,8 +60,18 @@ export async function startMcpHttp(
 
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
-    if (url.pathname === '/sse') {
-      transport = new SSEServerTransport('/message', res);
+    if (url.pathname === '/mcp' || url.pathname === '/sse') {
+      if (req.method === 'POST') {
+        if (!transport) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'SSE connection not established yet. Connect via GET first.' }));
+          return;
+        }
+        await transport.handlePostMessage(req, res);
+        return;
+      }
+      // GET establishes SSE stream
+      transport = new SSEServerTransport('/mcp', res);
       await server.connect(transport);
       return;
     }
@@ -69,7 +79,7 @@ export async function startMcpHttp(
     if (url.pathname === '/message' && req.method === 'POST') {
       if (!transport) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'SSE connection not established yet. Connect to /sse first.' }));
+        res.end(JSON.stringify({ error: 'SSE connection not established yet. Connect to /mcp first.' }));
         return;
       }
       await transport.handlePostMessage(req, res);
@@ -85,7 +95,9 @@ export async function startMcpHttp(
           server: 'glintbase-mcp',
           version: '3.0.0',
           spec: '2024-11-05',
+          endpoint: '/mcp',
           endpoints: {
+            mcp: '/mcp',
             sse: '/sse',
             message: '/message',
           },

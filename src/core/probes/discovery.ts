@@ -99,7 +99,7 @@ export async function probeDiscovery(
   // ========================================================
   const robotsRes = localContext?.robotsContent
     ? { ok: true, body: localContext.robotsContent, status: 200 }
-    : await resilientFetch(`${origin}/robots.txt`, 3500);
+    : (localContext?.isLocalCodebase ? { ok: false, body: '', status: 404 } : await resilientFetch(`${origin}/robots.txt`, 3500));
   const robotsPolicy = {
     found: false,
     aiFriendly: false,
@@ -132,21 +132,25 @@ export async function probeDiscovery(
       robotsPolicy.aiFriendly = true;
     }
   } else {
-    // Default open if no robots.txt
-    robotsPolicy.aiFriendly = true;
+    // No robots.txt detected
+    robotsPolicy.found = false;
+    robotsPolicy.aiFriendly = false;
   }
 
+  const robotsPassed = robotsPolicy.found && robotsPolicy.aiFriendly;
   results.push({
     checkId: 'robots-ai-policy-quality',
-    status: robotsPolicy.aiFriendly ? 'pass' : 'fail',
-    earnedPoints: robotsPolicy.aiFriendly ? 2 : 0,
+    status: robotsPassed ? 'pass' : (robotsPolicy.found ? 'fail' : 'warn'),
+    earnedPoints: robotsPassed ? 2 : 0,
     maxPoints: 2,
     isBonus: false,
-    message: robotsPolicy.aiFriendly
-      ? `robots.txt permits AI answer engines (${robotsPolicy.botsAllowed.join(', ') || 'default open'})`
-      : `robots.txt blocks AI answer bots (${robotsPolicy.botsBlocked.join(', ')})`,
+    message: robotsPassed
+      ? `robots.txt permits AI answer engines (${robotsPolicy.botsAllowed.join(', ') || 'explicit allow'})`
+      : (robotsPolicy.found
+        ? `robots.txt blocks AI answer bots (${robotsPolicy.botsBlocked.join(', ')})`
+        : 'No robots.txt detected; explicit AI crawler permissions recommended'),
     evidence: { robotsPolicy },
-    remediation: !robotsPolicy.aiFriendly ? {
+    remediation: !robotsPassed ? {
       title: 'Update robots.txt for AI Answer Engines',
       file: 'public/robots.txt',
       diffSnippet: [
@@ -164,9 +168,9 @@ export async function probeDiscovery(
   // ========================================================
   const ardRes = localContext?.ardContent
     ? { ok: true, body: localContext.ardContent, status: 200 }
-    : await resilientFetch(`${origin}/.well-known/ard.json`, 3500);
-  const aiCatRes = await resilientFetch(`${origin}/.well-known/ai-catalog.json`, 3500);
-  const fallbackCatRes = await resilientFetch(`${origin}/ai-catalog.json`, 3500);
+    : (localContext?.isLocalCodebase ? { ok: false, body: '', status: 404 } : await resilientFetch(`${origin}/.well-known/ard.json`, 3500));
+  const aiCatRes = localContext?.isLocalCodebase ? { ok: false, body: '', status: 404 } : await resilientFetch(`${origin}/.well-known/ai-catalog.json`, 3500);
+  const fallbackCatRes = localContext?.isLocalCodebase ? { ok: false, body: '', status: 404 } : await resilientFetch(`${origin}/ai-catalog.json`, 3500);
 
   let parsedArd: any = null;
   let parsedAiCat: any = null;
@@ -275,9 +279,9 @@ export async function probeDiscovery(
   // ========================================================
   // 3. MCP Registry Branding (registry-branding)
   // ========================================================
-  const mcpManifestRes = await resilientFetch(`${origin}/.well-known/mcp/manifest.json`, 1500);
-  const mcpJsonRes = await resilientFetch(`${origin}/.well-known/mcp.json`, 1500);
-  const rootMcpRes = await resilientFetch(`${origin}/mcp.json`, 1500);
+  const mcpManifestRes = localContext?.isLocalCodebase ? { ok: false, body: '', status: 404 } : await resilientFetch(`${origin}/.well-known/mcp/manifest.json`, 1500);
+  const mcpJsonRes = localContext?.isLocalCodebase ? { ok: false, body: '', status: 404 } : await resilientFetch(`${origin}/.well-known/mcp.json`, 1500);
+  const rootMcpRes = localContext?.isLocalCodebase ? { ok: false, body: '', status: 404 } : await resilientFetch(`${origin}/mcp.json`, 1500);
 
   let hasBranding = false;
   for (const mRes of [mcpManifestRes, mcpJsonRes, rootMcpRes]) {
@@ -308,35 +312,37 @@ export async function probeDiscovery(
   // Strict 1500ms timeout with local caching & resilient fallback
   // ========================================================
   let hasWikiP856 = false;
-  try {
-    const wikiQueryUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(brandName)}&language=en&format=json`;
-    const wikiSearch = await resilientFetch(wikiQueryUrl, 1500);
-    if (wikiSearch.ok && wikiSearch.body) {
-      const data = JSON.parse(wikiSearch.body);
-      if (Array.isArray(data.search) && data.search.length > 0) {
-        const entityId = data.search[0].id;
-        if (entityId) {
-          const entityUrl = `https://www.wikidata.org/wiki/Special:EntityData/${entityId}.json`;
-          const entityData = await resilientFetch(entityUrl, 1500);
-          if (entityData.ok && entityData.body) {
-            const entJson = JSON.parse(entityData.body);
-            const claims = entJson.entities?.[entityId]?.claims;
-            const p856Claims = claims?.P856;
-            if (Array.isArray(p856Claims)) {
-              for (const c of p856Claims) {
-                const val = c.mainsnak?.datavalue?.value;
-                if (typeof val === 'string' && val.toLowerCase().includes(hostname)) {
-                  hasWikiP856 = true;
-                  break;
+  if (!localContext?.isLocalCodebase && hostname !== 'localhost') {
+    try {
+      const wikiQueryUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(brandName)}&language=en&format=json`;
+      const wikiSearch = await resilientFetch(wikiQueryUrl, 1500);
+      if (wikiSearch.ok && wikiSearch.body) {
+        const data = JSON.parse(wikiSearch.body);
+        if (Array.isArray(data.search) && data.search.length > 0) {
+          const entityId = data.search[0].id;
+          if (entityId) {
+            const entityUrl = `https://www.wikidata.org/wiki/Special:EntityData/${entityId}.json`;
+            const entityData = await resilientFetch(entityUrl, 1500);
+            if (entityData.ok && entityData.body) {
+              const entJson = JSON.parse(entityData.body);
+              const claims = entJson.entities?.[entityId]?.claims;
+              const p856Claims = claims?.P856;
+              if (Array.isArray(p856Claims)) {
+                for (const c of p856Claims) {
+                  const val = c.mainsnak?.datavalue?.value;
+                  if (typeof val === 'string' && val.toLowerCase().includes(hostname)) {
+                    hasWikiP856 = true;
+                    break;
+                  }
                 }
               }
             }
           }
         }
       }
+    } catch {
+      hasWikiP856 = false;
     }
-  } catch {
-    hasWikiP856 = false;
   }
 
   results.push({
@@ -355,7 +361,7 @@ export async function probeDiscovery(
   // Check npm registry API with 1500ms timeout or local package.json
   // ========================================================
   let hasNpmPackage = Boolean(localContext?.packageName);
-  if (!hasNpmPackage) {
+  if (!hasNpmPackage && !localContext?.isLocalCodebase && hostname !== 'localhost') {
     try {
       const npmRes = await resilientFetch(`https://registry.npmjs.org/${encodeURIComponent(brandName)}`, 1500);
       if (npmRes.ok && npmRes.body) {
@@ -418,25 +424,24 @@ export async function probeDiscovery(
   // ========================================================
   // 8. Search Discoverability & External Directories
   // ========================================================
-  // brand-search-accuracy: apex reachability
-  const isApexResolvable = true; // since fetch succeeded
+  // brand-search-accuracy: external search lookup
   results.push({
     checkId: 'brand-search-accuracy',
-    status: 'pass',
-    earnedPoints: 3,
+    status: 'na',
+    earnedPoints: 0,
     maxPoints: 3,
-    isBonus: false,
-    message: `Target domain ${hostname} resolves as authoritative apex origin`,
+    isBonus: true,
+    message: 'External brand search accuracy not yet probed (excluded from score)',
   });
 
   // agentic-search-specific: developer documentation search
   results.push({
     checkId: 'agentic-search-specific',
-    status: 'pass',
-    earnedPoints: 3,
+    status: 'na',
+    earnedPoints: 0,
     maxPoints: 3,
-    isBonus: false,
-    message: 'Developer portal and API specifications indexed for autonomous discovery',
+    isBonus: true,
+    message: 'External agentic search index not yet probed (excluded from score)',
   });
 
   // chatgpt-app-listed (bonus)
@@ -452,11 +457,11 @@ export async function probeDiscovery(
   // mcp-registry-listed
   results.push({
     checkId: 'mcp-registry-listed',
-    status: 'pass',
-    earnedPoints: 1,
+    status: 'na',
+    earnedPoints: 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'MCP server endpoints discoverable via standard registry paths',
+    isBonus: true,
+    message: 'MCP registry listing not yet probed (excluded from score)',
   });
 
   // skills-sh-listed

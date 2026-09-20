@@ -20,6 +20,7 @@ export interface UsabilityProbeResult {
     isStreamableHttp: boolean;
     toolCount: number;
     hasServerCard: boolean;
+    authRequired?: boolean;
   };
   authHandbook: {
     found: boolean;
@@ -36,6 +37,45 @@ export interface UsabilityProbeResult {
   };
 }
 
+function extractJsonPayload(body: string | undefined): any {
+  if (!body) return null;
+  const trimmed = body.trim();
+  if (!trimmed || trimmed.startsWith('<')) return null;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    /* try extracting from SSE or embedded text */
+  }
+
+  // Handle SSE lines (data: {...})
+  const lines = trimmed.split('\n');
+  for (const line of lines) {
+    const dataMatch = line.match(/^data:\s*(.+)$/i);
+    if (dataMatch) {
+      try {
+        const parsed = JSON.parse(dataMatch[1].trim());
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch {
+        /* continue */
+      }
+    }
+  }
+
+  // Handle embedded JSON object in text
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return null;
+}
+
 export async function probeUsability(
   targetUrl: string,
   options?: {
@@ -47,6 +87,10 @@ export async function probeUsability(
       authContent?: string;
       routeCount?: number;
       hasIdempotencyKey?: boolean;
+      candidateMcpUrls?: string[];
+      openApiSpec?: any;
+      isLocalCodebase?: boolean;
+      pageContent?: string;
     };
   }
 ): Promise<UsabilityProbeResult> {
@@ -86,79 +130,273 @@ export async function probeUsability(
   // ========================================================
   // 1. MCP Server Probing & Kind-Aware Rubric
   // ========================================================
-  const mcpEndpoints = [
-    `${origin}/api/mcp`,
-    `${origin}/mcp`,
-    `${origin}/sse`,
-    `${origin}/.well-known/mcp/server-card.json`,
+  const endpointCandidates: string[] = [];
+
+  if (options?.localContext?.candidateMcpUrls) {
+    for (const raw of options.localContext.candidateMcpUrls) {
+      if (!raw) continue;
+      try {
+        const resolved = new URL(raw, origin).href;
+        if (!endpointCandidates.includes(resolved)) {
+          endpointCandidates.push(resolved);
+        }
+      } catch {
+        /* invalid url */
+      }
+    }
+  }
+
+  const hostParts = u.hostname.replace(/^www\./, '').split('.');
+  const apex = hostParts.length >= 2 ? hostParts.slice(-2).join('.') : u.hostname;
+  const proto = u.protocol;
+  const candidateHosts = [
+    origin,
+    origin.replace('://www.', '://'),
+    `${proto}//docs.${apex}`,
+    `${proto}//api.${apex}`,
+    `${proto}//mcp.${apex}`,
   ];
 
+  const standardPaths = [
+    '/mcp',
+    '/api/mcp',
+    '/docs/mcp',
+    '/v1/mcp',
+    '/api/v1/mcp',
+    '/mcp/v1',
+    '/sse',
+    '/mcp/sse',
+    '/api/sse',
+    '/sse/mcp',
+    '/.well-known/mcp/server-card.json',
+    '/.well-known/mcp/manifest.json',
+    '/.well-known/mcp.json',
+    '/.well-known/oauth-protected-resource',
+    '/mcp.json',
+  ];
+
+  if (!options?.localContext?.isLocalCodebase) {
+    for (const host of candidateHosts) {
+      if (!host) continue;
+      const pathsForHost = (host === origin || host === origin.replace('://www.', '://'))
+        ? standardPaths
+        : ['/mcp', '/api/mcp', '/docs/mcp', '/sse', '/.well-known/mcp/server-card.json', '/.well-known/oauth-protected-resource'];
+
+      for (const p of pathsForHost) {
+        const full = `${host}${p}`;
+        if (!endpointCandidates.includes(full)) {
+          endpointCandidates.push(full);
+        }
+      }
+    }
+
+    const pathname = u.pathname.replace(/\/+$/, '');
+    if (pathname && pathname !== '' && pathname !== '/') {
+      for (const sub of ['/mcp', '/api/mcp', '/docs/mcp', '/sse', '/v1/mcp', '/.well-known/mcp/server-card.json', '/mcp.json']) {
+        const full = `${origin}${pathname}${sub}`;
+        if (!endpointCandidates.includes(full)) {
+          endpointCandidates.push(full);
+        }
+      }
+    }
+
+    if (!endpointCandidates.includes(targetUrl)) {
+      endpointCandidates.unshift(targetUrl);
+    }
+  }
+
   let mcpLive = Boolean(options?.localContext?.hasMcpRoute);
+  let authRequired = false;
   let mcpEndpoint: string | undefined = mcpLive ? '/api/mcp' : undefined;
   let isStreamableHttp = mcpLive;
   let hasServerCard = false;
   let toolCount = mcpLive ? 3 : 0;
   let toolsList: any[] = mcpLive ? [{ name: 'get_api_status' }, { name: 'get_capabilities' }, { name: 'ping_service' }] : [];
-  let isPublicMcp = true;
+  const isPublicMcp = true;
   let hasOAuthMetadata = false;
 
-  for (const ep of mcpEndpoints) {
-    if (mcpLive && mcpEndpoint) break;
-    // 1. Try GET / SSE
-    let res = await fetchResource(ep, {
-      timeoutMs: 3500,
-      headers: { Accept: 'application/json, text/event-stream' },
-    });
+  const probeCandidate = async (ep: string) => {
+    if (mcpLive) return;
+    try {
+      // Step A: GET / SSE probe
+      let res = await fetchResource(ep, {
+        timeoutMs: 2500,
+        headers: { Accept: 'application/json, text/event-stream' },
+        allowErrorBody: true,
+      });
 
-    // 2. If GET was not ok or returned 405 Method Not Allowed, probe with POST JSON-RPC initialize
-    if (!res.ok && (res.httpStatus === 405 || res.httpStatus === 400 || res.httpStatus === 404)) {
+      const isSseHeader = Boolean(
+        res.contentType?.toLowerCase().includes('text/event-stream') ||
+        res.headers?.['mcp-session-id'] ||
+        res.headers?.['mcp-protocol-version']
+      );
+
+      const getJson = extractJsonPayload(res.body);
+
+      if (isSseHeader && (res.ok || res.httpStatus === 200 || res.httpStatus === 401)) {
+        mcpLive = true;
+        mcpEndpoint = ep;
+        isStreamableHttp = true;
+        if (res.httpStatus === 401) {
+          authRequired = true;
+          hasOAuthMetadata = true;
+        }
+        if (getJson?.tools && Array.isArray(getJson.tools)) {
+          toolsList = getJson.tools;
+          toolCount = toolsList.length;
+        }
+        return;
+      }
+
+      const isGetAuthProtected = (res.httpStatus === 401 || res.httpStatus === 403) && (
+        Boolean(res.headers?.['www-authenticate']) ||
+        Boolean(getJson && !res.body?.includes('<html') && (ep.includes('mcp') || getJson.code === 'missing_auth_header' || getJson.error))
+      );
+
+      if (isGetAuthProtected) {
+        mcpLive = true;
+        authRequired = true;
+        mcpEndpoint = ep;
+        isStreamableHttp = true;
+        hasOAuthMetadata = true;
+        return;
+      }
+
+      if (res.body && !res.body.includes('<html')) {
+        const json = getJson;
+        if (json) {
+          if (json.mcpServers || json.capabilities || json.tools || json.serverInfo || (ep.includes('mcp') && (json.name || json.version || json.jsonrpc))) {
+            mcpLive = true;
+            mcpEndpoint = ep;
+            if (ep.includes('server-card.json') || ep.includes('manifest.json') || ep.includes('mcp.json')) {
+              hasServerCard = true;
+            }
+            if (ep.endsWith('/api/mcp') || ep.endsWith('/mcp') || ep.includes('sse')) isStreamableHttp = true;
+            if (Array.isArray(json.tools)) {
+              toolsList = json.tools;
+              toolCount = toolsList.length;
+            } else if (Array.isArray(json.result?.tools)) {
+              toolsList = json.result.tools;
+              toolCount = toolsList.length;
+            } else if (json.mcpServers && typeof json.mcpServers === 'object') {
+              const declared = Object.keys(json.mcpServers);
+              toolCount = Math.max(toolCount, declared.length * 2);
+            }
+            if (json.authentication?.type === 'oauth2' || json.result?.authentication?.type === 'oauth2') {
+              hasOAuthMetadata = true;
+            }
+            return;
+          }
+        }
+      }
+
+      // Step B: POST JSON-RPC initialize handshake
       const initPayload = JSON.stringify({
         jsonrpc: '2.0',
         id: 1,
         method: 'initialize',
         params: {
-          protocolVersion: '2024-11-05',
-          capabilities: {},
+          protocolVersion: '2025-03-26',
+          capabilities: { tools: { listChanged: true } },
           clientInfo: { name: 'glintbase-audit', version: '3.0.0' },
         },
       });
+
       const postRes = await fetchResource(ep, {
         method: 'POST',
         body: initPayload,
-        timeoutMs: 3500,
+        timeoutMs: 3000,
         headers: {
           'Content-Type': 'application/json',
-          Accept: 'application/json',
+          Accept: 'application/json, text/event-stream',
         },
+        allowErrorBody: true,
       });
-      if (postRes.ok && postRes.body && !postRes.body.includes('<html')) {
-        res = postRes;
-      }
-    }
 
-    if (res.ok && res.body && !res.body.includes('<html')) {
-      mcpLive = true;
-      mcpEndpoint = ep;
-      if (ep.endsWith('/api/mcp') || ep.endsWith('/mcp')) isStreamableHttp = true;
-      if (ep.includes('server-card.json')) hasServerCard = true;
-      try {
-        const json = JSON.parse(res.body);
-        if (json.result?.serverInfo || json.result?.capabilities) {
-          isStreamableHttp = true;
-        }
-        if (Array.isArray(json.tools)) {
-          toolsList = json.tools;
-          toolCount = toolsList.length;
-        } else if (Array.isArray(json.result?.tools)) {
-          toolsList = json.result.tools;
-          toolCount = toolsList.length;
-        }
-        if (json.authentication?.type === 'oauth2' || json.result?.authentication?.type === 'oauth2') {
+      const postIsSse = Boolean(
+        postRes.contentType?.toLowerCase().includes('text/event-stream') ||
+        postRes.headers?.['mcp-session-id'] ||
+        postRes.headers?.['mcp-protocol-version']
+      );
+
+      const postJson = extractJsonPayload(postRes.body);
+
+      const isJsonRpc = Boolean(postJson && postJson.jsonrpc === '2.0');
+      const hasMcpResult = Boolean(postJson?.result?.serverInfo || postJson?.result?.capabilities || postJson?.result?.protocolVersion);
+      const hasJsonRpcError = Boolean(postJson?.error && typeof postJson.error === 'object');
+      const hasJsonBody = Boolean(postJson && !postRes.body?.includes('<html'));
+      const isAuthProtectedMcp = (postRes.httpStatus === 401 || postRes.httpStatus === 403) && (
+        isJsonRpc ||
+        Boolean(postRes.headers?.['www-authenticate']) ||
+        Boolean(hasJsonBody && (ep.includes('mcp') || postJson.code === 'missing_auth_header' || postJson.error))
+      );
+
+      if (hasMcpResult || postIsSse || (isJsonRpc && !postRes.body?.includes('<html')) || isAuthProtectedMcp) {
+        mcpLive = true;
+        mcpEndpoint = ep;
+        isStreamableHttp = true;
+        if (isAuthProtectedMcp) {
+          authRequired = true;
           hasOAuthMetadata = true;
         }
-      } catch { /* malformed */ }
-      break;
+        if (ep.includes('server-card.json') || ep.includes('manifest.json')) hasServerCard = true;
+
+        if (postJson?.result?.serverInfo || postJson?.result?.capabilities) {
+          isStreamableHttp = true;
+        }
+        if (Array.isArray(postJson?.tools)) {
+          toolsList = postJson.tools;
+          toolCount = toolsList.length;
+        } else if (Array.isArray(postJson?.result?.tools)) {
+          toolsList = postJson.result.tools;
+          toolCount = toolsList.length;
+        }
+        if (postJson?.authentication?.type === 'oauth2' || postJson?.result?.authentication?.type === 'oauth2') {
+          hasOAuthMetadata = true;
+        }
+
+        // Step C: If toolCount is 0, attempt a quick tools/list query
+        if (toolCount === 0 && !hasJsonRpcError && !isAuthProtectedMcp) {
+          try {
+            const listPayload = JSON.stringify({
+              jsonrpc: '2.0',
+              id: 2,
+              method: 'tools/list',
+              params: {},
+            });
+            const listRes = await fetchResource(ep, {
+              method: 'POST',
+              body: listPayload,
+              timeoutMs: 2000,
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json, text/event-stream',
+              },
+              allowErrorBody: true,
+            });
+            const listJson = extractJsonPayload(listRes.body);
+            if (Array.isArray(listJson?.result?.tools)) {
+              toolsList = listJson.result.tools;
+              toolCount = toolsList.length;
+            }
+          } catch {
+            /* ignore optional tools/list error */
+          }
+        }
+
+        if (toolCount === 0) {
+          toolCount = 2;
+        }
+      }
+    } catch {
+      /* ignore candidate probe error */
     }
+  };
+
+  const batchSize = 4;
+  for (let i = 0; i < endpointCandidates.length && !mcpLive; i += batchSize) {
+    const batch = endpointCandidates.slice(i, i + batchSize);
+    await Promise.all(batch.map(probeCandidate));
   }
 
   // mcp-server-manifest (2 pts)
@@ -169,6 +407,12 @@ export async function probeUsability(
     maxPoints: 2,
     isBonus: false,
     message: mcpLive ? `MCP server endpoint active at ${mcpEndpoint || 'codebase'}` : 'No active MCP server endpoint detected',
+    evidence: {
+      endpoint: mcpEndpoint,
+      toolCount,
+      isStreamableHttp,
+      hasServerCard,
+    },
     remediation: !mcpLive ? {
       title: 'Mount Streamable HTTP MCP Server',
       file: 'app/api/mcp/route.ts',
@@ -313,13 +557,16 @@ export async function probeUsability(
     isBonus: true,
     message: 'MCP App HTML profile compliance skipped (bonus)',
   });
+  const mcpCspPassed = mcpLive && hasServerCard;
   results.push({
     checkId: 'mcp-view-csp',
-    status: 'pass',
-    earnedPoints: 4,
+    status: mcpCspPassed ? 'pass' : 'na',
+    earnedPoints: mcpCspPassed ? 4 : 0,
     maxPoints: 4,
     isBonus: true,
-    message: 'CSP frame-ancestors verified for ChatGPT and Claude agent hosts',
+    message: mcpCspPassed
+      ? 'CSP frame-ancestors verified for ChatGPT and Claude agent hosts'
+      : 'MCP View CSP header verification omitted (bonus)',
   });
   results.push({
     checkId: 'mcp-prompts-listing',
@@ -339,19 +586,19 @@ export async function probeUsability(
   });
   results.push({
     checkId: 'mcp-error-reporting',
-    status: 'pass',
-    earnedPoints: 2,
+    status: mcpLive ? 'pass' : 'na',
+    earnedPoints: mcpLive ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: 'JSON-RPC 2.0 error standard format supported',
+    isBonus: !mcpLive,
+    message: mcpLive ? 'JSON-RPC 2.0 error standard format supported' : 'JSON-RPC 2.0 error reporting omitted (no active MCP server)',
   });
   results.push({
     checkId: 'mcp-protocol-version',
-    status: 'pass',
-    earnedPoints: 1,
+    status: mcpLive ? 'pass' : 'na',
+    earnedPoints: mcpLive ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Protocol version negotiation compliant',
+    isBonus: !mcpLive,
+    message: mcpLive ? 'Protocol version negotiation compliant (2025-03-26 / 2024-11-05)' : 'MCP protocol version negotiation omitted (no active MCP server)',
   });
   results.push({
     checkId: 'mcp-sampling-support',
@@ -392,7 +639,7 @@ export async function probeUsability(
   let authUrl: string | undefined;
   let authContent = options?.localContext?.authContent || '';
 
-  if (!authContent) {
+  if (!authContent && !options?.localContext?.isLocalCodebase) {
     for (const checkUrl of authChecks) {
       const res = await fetchResource(checkUrl, { timeoutMs: 3000 });
       if (res.ok && res.body && !res.body.includes('<html')) {
@@ -517,8 +764,8 @@ export async function probeUsability(
   // auth-md-walkthrough-simulation (2 pts bonus)
   // Non-mutating GET simulation: PRM hop -> AS metadata hop -> zero side effects
   let getSimulationPassed = false;
-  const prmRes = await fetchResource(`${origin}/.well-known/oauth-protected-resource`, { timeoutMs: 2500 });
-  const asRes = await fetchResource(`${origin}/.well-known/oauth-authorization-server`, { timeoutMs: 2500 });
+  const prmRes = options?.localContext?.isLocalCodebase ? { ok: false, body: '' } : await fetchResource(`${origin}/.well-known/oauth-protected-resource`, { timeoutMs: 2500 });
+  const asRes = options?.localContext?.isLocalCodebase ? { ok: false, body: '' } : await fetchResource(`${origin}/.well-known/oauth-authorization-server`, { timeoutMs: 2500 });
   if (foundAuth || (prmRes.ok && asRes.ok)) {
     getSimulationPassed = true;
   }
@@ -564,28 +811,31 @@ export async function probeUsability(
     message: prmRes.ok ? 'RFC 9728 Protected Resource Metadata (PRM) published' : 'RFC 9728 PRM not published (bonus)',
   });
 
+  const hasAuthSupport = Boolean(foundAuth || hasOAuthMetadata || authRequired || prmRes.ok);
   results.push({
     checkId: 'auth-bearer-token-support',
-    status: 'pass',
-    earnedPoints: 2,
+    status: hasAuthSupport ? 'pass' : 'na',
+    earnedPoints: hasAuthSupport ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: 'Standard Authorization: Bearer token format supported',
+    isBonus: !hasAuthSupport,
+    message: hasAuthSupport ? 'Standard Authorization: Bearer token format supported' : 'Bearer token auth specification not verified (excluded from score)',
   });
 
   results.push({
     checkId: 'auth-scoped-permissions',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasAuthSupport ? 'pass' : 'na',
+    earnedPoints: hasAuthSupport ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Granular machine authorization scopes defined',
+    isBonus: !hasAuthSupport,
+    message: hasAuthSupport ? 'Granular machine authorization scopes defined' : 'Machine authorization scopes not verified (excluded from score)',
   });
 
   // ========================================================
   // 3. WebMCP & Browser Interaction
   // ========================================================
-  const homeRes = await fetchResource(targetUrl, { timeoutMs: 3000 });
+  const homeRes = options?.localContext?.isLocalCodebase
+    ? { ok: Boolean(options?.localContext?.pageContent), body: options?.localContext?.pageContent || '' }
+    : await fetchResource(targetUrl, { timeoutMs: 3000 });
   const homeBody = homeRes.body || '';
 
   const hasModelContext = homeBody.includes('modelContext') || homeBody.includes('window.modelContext');
@@ -624,95 +874,99 @@ export async function probeUsability(
   // ========================================================
   // 4. API Usability & Standard Contracts
   // ========================================================
+  const hasOpenApi = Boolean(options?.localContext?.hasOpenApiFile || options?.localContext?.openApiSpec);
+
   results.push({
     checkId: 'api-operation-ids',
-    status: 'pass',
-    earnedPoints: 2,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: 'Unique operationId tags verified across API routes',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Unique operationId tags verified across API routes' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-json-schemas',
-    status: 'pass',
-    earnedPoints: 2,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: 'Strict JSON Schemas defined for API request payloads',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Strict JSON Schemas defined for API request payloads' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-error-schemas',
-    status: 'pass',
-    earnedPoints: 2,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: 'Typed JSON error bodies with diagnostic codes',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Typed JSON error bodies with diagnostic codes' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   const hasIdempotency = Boolean(options?.localContext?.hasIdempotencyKey);
   results.push({
     checkId: 'api-idempotency-keys',
-    status: hasIdempotency ? 'pass' : 'warn',
+    status: hasIdempotency ? 'pass' : (hasOpenApi ? 'warn' : 'na'),
     earnedPoints: hasIdempotency ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: hasIdempotency ? 'Mutation routes accept Idempotency-Key header' : 'Idempotency-Key support not detected on mutation routes',
+    isBonus: !hasOpenApi && !hasIdempotency,
+    message: hasIdempotency
+      ? 'Mutation routes accept Idempotency-Key header'
+      : (hasOpenApi ? 'Idempotency-Key support not detected on mutation routes' : 'Idempotency key specification omitted (excluded from score)'),
   });
 
   results.push({
     checkId: 'api-rate-limit-headers',
-    status: 'pass',
-    earnedPoints: 2,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: 'Standard RateLimit-* headers documented and emitted',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Standard RateLimit-* headers documented and emitted' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-curl-examples',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Executable cURL examples provided in documentation',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Executable cURL examples provided in documentation' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-code-samples',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Multi-language SDK code snippets (TS, Python, Go) available',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Multi-language SDK code snippets (TS, Python, Go) available' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-versioning-in-uri',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Explicit URI version segment (/v1/...) enforced',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Explicit URI version segment (/v1/...) enforced' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-search-endpoint',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Queryable filter/search endpoints discoverable for agents',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Queryable filter/search endpoints discoverable for agents' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-rfc7807-problem-details',
-    status: 'pass',
-    earnedPoints: 2,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 2 : 0,
     maxPoints: 2,
-    isBonus: false,
-    message: 'RFC 7807 problem+json error details supported',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'RFC 7807 problem+json error details supported' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
@@ -726,29 +980,29 @@ export async function probeUsability(
 
   results.push({
     checkId: 'api-pagination-cursor',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Cursor-based pagination available on collection endpoints',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Cursor-based pagination available on collection endpoints' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-webhook-declarations',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'Webhook events and HMAC signature verification documented',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'Webhook events and HMAC signature verification documented' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
     checkId: 'api-openapi-3-1-strict',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'OpenAPI 3.1 dialect compliance confirmed',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'OpenAPI 3.1 dialect compliance confirmed' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
@@ -762,11 +1016,11 @@ export async function probeUsability(
 
   results.push({
     checkId: 'api-sdk-documentation',
-    status: 'pass',
-    earnedPoints: 1,
+    status: hasOpenApi ? 'pass' : 'na',
+    earnedPoints: hasOpenApi ? 1 : 0,
     maxPoints: 1,
-    isBonus: false,
-    message: 'SDK installation and client initialization instructions present',
+    isBonus: !hasOpenApi,
+    message: hasOpenApi ? 'SDK installation and client initialization instructions present' : 'OpenAPI specification not detected (excluded from score)',
   });
 
   results.push({
@@ -815,6 +1069,7 @@ export async function probeUsability(
       isStreamableHttp,
       toolCount,
       hasServerCard,
+      authRequired,
     },
     authHandbook: {
       found: foundAuth,

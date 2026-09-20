@@ -64,7 +64,7 @@ export function printSimulatorHud(
 ): void {
   console.log(pc.cyan('\n┌  ') + pc.bold(pc.white('Glintbase Agent Flight Simulator')));
   console.log(pc.cyan('│  ') + pc.dim('Target: ') + pc.cyan(meta.target) + pc.dim('  |  Persona: ') + pc.yellow(`${meta.agentName} (${meta.contextTokens.toLocaleString()} tokens)`));
-  console.log(pc.cyan('│  ') + pc.dim('Mode: ') + pc.white(meta.mode === 'live' ? 'Live LLM Provider' : 'Hybrid Deterministic') + pc.dim('   |  Intent: ') + pc.dim(meta.intent));
+  console.log(pc.cyan('│  ') + pc.dim('Mode: ') + pc.white(meta.mode === 'live' ? 'Live LLM Provider' : 'Deterministic estimate') + pc.dim('   |  Intent: ') + pc.dim(meta.intent));
   console.log(pc.cyan('│'));
 
   // Trajectory Breadcrumbs
@@ -92,12 +92,22 @@ export function printSimulatorHud(
     ? pc.green(pc.bold('COMPLETED'))
     : telemetry.outcome === 'blocked'
       ? pc.red(pc.bold('BLOCKED'))
-      : pc.yellow(pc.bold(telemetry.outcome.toUpperCase()));
+      : telemetry.outcome === 'failed'
+        ? pc.red(pc.bold('FAILED'))
+        : telemetry.outcome === 'partial'
+          ? pc.yellow(pc.bold('PARTIAL'))
+          : pc.yellow(pc.bold(telemetry.outcome.toUpperCase()));
 
   console.log(pc.cyan('│  ') + 'Outcome:               ' + outcomeColor);
-  console.log(pc.cyan('│  ') + 'Time-To-First-Tool:    ' + pc.white(`${telemetry.ttftcMs || telemetry.totalDurationMs}ms`));
-  console.log(pc.cyan('│  ') + 'Total Tokens Burned:   ' + pc.white(`${telemetry.totalTokensBurned.toLocaleString()} tokens`));
-  console.log(pc.cyan('│  ') + 'Estimated Tax:         ' + pc.white(`$${telemetry.dollarTaxUsd.toFixed(5)} / agent session`));
+  if (meta.mode === 'live') {
+    console.log(pc.cyan('│  ') + 'Time-To-First-Tool:    ' + pc.white(`${telemetry.ttftcMs || telemetry.totalDurationMs}ms`));
+    console.log(pc.cyan('│  ') + 'Total Tokens Burned:   ' + pc.white(`${telemetry.totalTokensBurned.toLocaleString()} tokens`));
+    console.log(pc.cyan('│  ') + 'Estimated Tax:         ' + pc.white(`$${telemetry.dollarTaxUsd.toFixed(5)} / agent session`));
+  } else {
+    console.log(pc.cyan('│  ') + 'Time-To-First-Tool:    ' + pc.dim('N/A (Requires --mode live)'));
+    console.log(pc.cyan('│  ') + 'Total Tokens Burned:   ' + pc.white(`${telemetry.totalTokensBurned.toLocaleString()} tokens (heuristic)`));
+    console.log(pc.cyan('│  ') + 'Estimated Tax:         ' + pc.dim('N/A (Requires --mode live)'));
+  }
 
   let frictionLabel = pc.green(`${telemetry.schemaFrictionScore}/100 (Flawless)`);
   if (telemetry.schemaFrictionScore > 30 && telemetry.schemaFrictionScore <= 60) {

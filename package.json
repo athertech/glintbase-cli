@@ -1,6 +1,6 @@
 {
   "name": "@glintbase/cli",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Glintbase Agent Harness — autonomous agent-readiness auditor (ARS 3.0), Flight Simulator & CI drift shield",
   "license": "Apache-2.0",
   "author": "Glintbase <info@glintbase.xyz>",
@@ -66,6 +66,7 @@
     "picocolors": "^1.1.1",
     "prompts": "^2.4.2",
     "typescript": "^5.8.0",
+    "untun": "^0.2.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -24,6 +24,8 @@ export * from './missions/goldenSuite.js';
 export * from './counterfactual.js';
 export * from './engines/deterministicEngine.js';
 export * from './engines/liveLlmEngine.js';
+export * from './visual/journeyTreeSvg.js';
+export * from './visual/stateCompressor.js';
 
 export interface SimulationExecutionResult {
   telemetry: SimulationTelemetry;

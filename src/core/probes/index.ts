@@ -78,6 +78,7 @@ export interface RunProbesOptions {
     hasX402Header?: boolean;
     hasUcpFile?: boolean;
     hasAcpFile?: boolean;
+    candidateMcpUrls?: string[];
   };
 }
 
@@ -95,12 +96,31 @@ export async function runArs3Probes(
     ...options.archetypeInput,
   });
 
-  // 2. Execute 4 Layer probes in parallel
-  const [discovery, access, usability, payments] = await Promise.all([
-    probeDiscovery(url, options.localContext),
-    probeAccess(url, options.localContext),
-    probeUsability(url, { kind: kind === 'docs' ? 'docs' : 'product', localContext: options.localContext }),
-    probePayments(url, archetype.archetype, options.localContext),
+  let isLoopback = false;
+  try {
+    const parsed = new URL(url);
+    isLoopback = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  } catch {}
+
+  const baseLocalContext = {
+    ...options.localContext,
+    isLocalCodebase: options.localContext?.isLocalCodebase ?? (isLoopback && Boolean(options.localContext)),
+  };
+
+  // 2. Execute Layer probes with cross-layer context sharing (discovered OpenAPI specs)
+  const [discovery, access] = await Promise.all([
+    probeDiscovery(url, baseLocalContext),
+    probeAccess(url, baseLocalContext),
+  ]);
+
+  const sharedContext = {
+    ...baseLocalContext,
+    hasOpenApiFile: Boolean(baseLocalContext.hasOpenApiFile || access.openapi?.found),
+  };
+
+  const [usability, payments] = await Promise.all([
+    probeUsability(url, { kind: kind === 'docs' ? 'docs' : 'product', localContext: sharedContext }),
+    probePayments(url, archetype.archetype, sharedContext),
   ]);
 
   // 3. Aggregate all checks
@@ -115,7 +135,7 @@ export async function runArs3Probes(
   // Each layer's raw base check score is normalized to its allocated archetype layer weight
   const computeLayerBase = (checks: CheckResult[], maxLayerWeight: number) => {
     if (maxLayerWeight <= 0) return 0;
-    const baseChecks = checks.filter(c => !c.isBonus && c.status !== 'skip');
+    const baseChecks = checks.filter(c => !c.isBonus && c.status !== 'skip' && c.status !== 'na');
     const rawPossible = baseChecks.reduce((sum, c) => sum + c.maxPoints, 0);
     const rawEarned = baseChecks.filter(c => c.status === 'pass').reduce((sum, c) => sum + c.earnedPoints, 0);
     if (rawPossible <= 0) return 0;
