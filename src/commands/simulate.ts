@@ -5,7 +5,7 @@
 
 import { Command } from 'commander';
 import pc from 'picocolors';
-import { runSimulation } from '../simulator/index.js';
+import { runSimulation, buildReplayUrl } from '../simulator/index.js';
 import type { SimulationOptions, SimulationTelemetry, CounterfactualComparison } from '../simulator/types.js';
 
 export const simulateCommand = new Command('simulate')
@@ -153,6 +153,11 @@ export function printSimulatorHud(
     console.log(pc.cyan('│  ') + 'Fix Available:         ' + pc.cyan('glintbase fix --agent'));
     console.log(pc.cyan('│'));
   }
+
+  const replayUrl = buildReplayUrl(meta.target, telemetry, meta.agentName);
+  console.log(pc.cyan('◇  ') + pc.bold('Cockpit Replay:'));
+  console.log(pc.cyan('│  ') + pc.underline(pc.cyan(replayUrl)));
+  console.log(pc.cyan('│'));
 
   // Footer
   if (telemetry.outcome === 'completed') {
