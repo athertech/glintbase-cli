@@ -3,6 +3,8 @@
 > **Glintbase Agent Harness (ARS 3.0)** — Autonomous Agent-Readiness Auditor, Flight Simulator & CI Drift Shield.
 
 [![Version](https://img.shields.io/npm/v/@glintbase/cli.svg?style=flat&color=3b82f6)](https://www.npmjs.com/package/@glintbase/cli)
+[![Smithery Badge](https://smithery.ai/badge/@glintbase/cli)](https://smithery.ai/server/@glintbase/cli)
+[![Glama](https://glama.ai/mcp/servers/athertech/glintbase-cli/badges/score.svg)](https://glama.ai/mcp/servers/athertech/glintbase-cli)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-158%20passing-brightgreen.svg)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-blue.svg)](https://nodejs.org)
