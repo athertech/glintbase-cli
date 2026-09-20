@@ -7,8 +7,8 @@
   "homepage": "https://glintbase.xyz",
   "type": "module",
   "bin": {
-    "glintbase": "./dist/index.js",
-    "glintbase-cli": "./dist/index.js"
+    "glintbase": "dist/index.js",
+    "glintbase-cli": "dist/index.js"
   },
   "files": [
     "dist",
@@ -37,7 +37,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/athertech/glintbase-cli.git"
+    "url": "git+https://github.com/athertech/glintbase-cli.git"
   },
   "bugs": {
     "url": "https://github.com/athertech/glintbase-cli/issues"
