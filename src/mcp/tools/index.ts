@@ -48,6 +48,8 @@ import {
   svgToBase64,
   buildReplayUrl,
   generateClaudeArtifactCode,
+  generateJourneyMermaid,
+  generateFlightHud,
 } from '../../simulator/index.js';
 import { analyzeTokenTax, estimateTokenCount } from '../../simulator/telemetry/tokenTax.js';
 import { evaluateSchemaFriction } from '../../simulator/telemetry/schemaFriction.js';
@@ -249,9 +251,8 @@ export function registerAllTools(server: McpServer): void {
 
         const tel = simResult.telemetry;
         const replayUrl = buildReplayUrl(effectiveTarget, tel, simResult.persona.name);
-        const svg = generateJourneyTreeSvg(tel, simResult.persona.name, effectiveTarget, replayUrl);
-        const svgBase64 = svgToBase64(svg);
-        const artifactCode = generateClaudeArtifactCode(svg, tel, simResult.persona.name, effectiveTarget, replayUrl);
+        const mermaidDiagram = generateJourneyMermaid(tel, simResult.persona.name, effectiveTarget);
+        const flightHud = generateFlightHud(tel, simResult.persona.name, effectiveTarget, replayUrl);
 
         const result = {
           persona: simResult.persona.name,
@@ -271,22 +272,12 @@ export function registerAllTools(server: McpServer): void {
           ...(verbose ? { detailedSteps: tel.steps } : {}),
         };
 
-        const markdownVisual = `### 🕹️ Glintbase Visual Flight Simulator (${simResult.persona.name})
-**Target**: \`${effectiveTarget}\` | **Outcome**: **${tel.outcome.toUpperCase()}** | **Tokens**: ${tel.totalTokensBurned.toLocaleString()} | **Friction**: ${tel.schemaFrictionScore}/100
-
-[🕹️ Open Full Interactive Cockpit Replay](${replayUrl})
-
-<details>
-<summary><b>View Visual Journey Tree Diagram (SVG / Artifact)</b></summary>
-
-${artifactCode}
-
-</details>`;
+        const markdownVisual = `${flightHud}
+${mermaidDiagram}`;
 
         return {
           content: [
             { type: 'text' as const, text: JSON.stringify(result, null, 2) },
-            { type: 'image' as const, data: svgBase64, mimeType: 'image/svg+xml' },
             { type: 'text' as const, text: markdownVisual },
           ],
         };
