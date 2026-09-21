@@ -62,9 +62,11 @@ export function printSimulatorHud(
   counterfactual: CounterfactualComparison | undefined,
   meta: { target: string; agentName: string; contextTokens: number; mode: string; intent: string }
 ): void {
-  console.log(pc.cyan('\n┌  ') + pc.bold(pc.white('Glintbase Agent Flight Simulator')));
+  const isLive = meta.mode === 'live';
+  const tag = isLive ? '' : pc.dim(' [Deterministic estimate]');
+  console.log(pc.cyan('\n┌  ') + pc.bold(pc.white('Glintbase Agent Flight Simulator')) + tag);
   console.log(pc.cyan('│  ') + pc.dim('Target: ') + pc.cyan(meta.target) + pc.dim('  |  Persona: ') + pc.yellow(`${meta.agentName} (${meta.contextTokens.toLocaleString()} tokens)`));
-  console.log(pc.cyan('│  ') + pc.dim('Mode: ') + pc.white(meta.mode === 'live' ? 'Live LLM Provider' : 'Deterministic estimate') + pc.dim('   |  Intent: ') + pc.dim(meta.intent));
+  console.log(pc.cyan('│  ') + pc.dim('Mode: ') + pc.white(isLive ? 'Live LLM Provider' : 'Deterministic estimate') + pc.dim('   |  Intent: ') + pc.dim(meta.intent));
   console.log(pc.cyan('│'));
 
   // Trajectory Breadcrumbs
@@ -77,7 +79,9 @@ export function printSimulatorHud(
 
     const phaseLabel = pc.dim(`[${step.phase.toUpperCase().padEnd(9)}]`);
     const actionLabel = step.action.padEnd(36);
-    const metrics = pc.dim(`(${step.durationMs}ms, ${step.tokensConsumed} tokens)`);
+    const metrics = isLive
+      ? pc.dim(`(${step.durationMs}ms, ${step.tokensConsumed} tokens)`)
+      : pc.dim(`(~${step.durationMs}ms, ~${step.tokensConsumed} tok est)`);
 
     console.log(pc.cyan('│  ') + `${step.stepIndex}. ${phaseLabel} ${actionLabel} ${badge}  ${metrics}`);
     if (step.details) {

@@ -43,6 +43,25 @@ Or install globally:
 npm install -g @glintbase/cli
 ```
 
+### Install Agent Skills (skills.sh)
+
+Install the 8 official Glintbase ARS 3.0 playbooks directly into your agent environment (Claude Code, Cursor, Windsurf, Antigravity):
+
+```bash
+npx skills add athertech/glintbase-cli
+```
+
+| Playbook | Command / Directory | Description |
+|---|---|---|
+| **`agent-readiness`** | `skills/agent-readiness` | Master framework for auditing, scoring, and optimizing web apps across 6 ARS 3.0 pillars |
+| **`living-artifacts`** | `skills/living-artifacts` | Design specifications for `llms.txt`, `llms-full.txt`, and `ard.json` machine entrypoints |
+| **`agent-auth`** | `skills/agent-auth` | Machine authentication handbook, WorkOS `auth.md`, and OAuth2 client credentials |
+| **`streamable-mcp`** | `skills/streamable-mcp` | Production streamable HTTP MCP server architecture under Anthropic MCP standard |
+| **`webmcp`** | `skills/webmcp` | Client-side tool registration via `window.modelContext` for browser-operating agents |
+| **`token-tax-schema`** | `skills/token-tax-schema` | Eliminating prompt bloat and ambiguous OpenAPI/MCP schemas that trigger hallucinations |
+| **`flight-simulator`** | `skills/flight-simulator` | Interpreting synthetic coding agent runs across Claude Code, Cursor, and Perplexity personas |
+| **`ci-drift-shield`** | `skills/ci-drift-shield` | Automated GitHub Actions workflow to block score regressions and post interactive PR comments |
+
 ---
 
 ## Core Commands

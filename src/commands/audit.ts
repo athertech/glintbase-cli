@@ -81,10 +81,14 @@ export const auditCommand = new Command('audit')
 
       if (opts.simulate) {
         simResult = await runSimulation({ target: codebaseDir, agent: 'claude-code', mode: opts.mode || 'deterministic' });
+        const isLiveMode = opts.mode === 'live';
+        const simSummary = isLiveMode
+          ? `Flight Simulator: ${simResult.telemetry.outcome.toUpperCase()} (${simResult.telemetry.totalTokensBurned} tokens burned, TTFTC ${simResult.telemetry.ttftcMs || simResult.telemetry.totalDurationMs}ms)`
+          : `Flight Simulator [Deterministic estimate]: ${simResult.telemetry.outcome.toUpperCase()} (${simResult.telemetry.totalTokensBurned} tokens heuristic)`;
         scorecard.simulation = {
           passed: simResult.telemetry.outcome === 'completed',
           durationMs: simResult.telemetry.totalDurationMs,
-          summary: `Flight Simulator: ${simResult.telemetry.outcome.toUpperCase()} (${simResult.telemetry.totalTokensBurned} tokens burned, TTFTC ${simResult.telemetry.ttftcMs || simResult.telemetry.totalDurationMs}ms)`,
+          summary: simSummary,
           metrics: {
             ragNavigationSteps: simResult.telemetry.steps.length,
             authStagesResolved: simResult.telemetry.steps.find((s: any) => s.phase === 'auth')?.status === 'pass' ? 6 : 1,
@@ -110,7 +114,19 @@ export const auditCommand = new Command('audit')
       );
 
       if (isUnreachable) {
-        console.error(pc.red(`\n  ✖ Target unreachable: ${preflight.error || `Failed to connect to ${effectiveTarget}`}\n`));
+        const errorMsg = preflight.error || `Failed to connect to ${effectiveTarget}`;
+        if (opts.json || opts.format === 'json') {
+          console.log(JSON.stringify({
+            error: errorMsg,
+            target: effectiveTarget,
+            unreachable: true,
+            status: preflight.status || 'failed',
+          }, null, 2));
+        } else if (opts.quiet) {
+          console.log(0);
+        } else {
+          console.error(pc.red(`\n  ✖ Target unreachable: ${errorMsg}\n`));
+        }
         process.exit(2);
       }
 
@@ -121,10 +137,14 @@ export const auditCommand = new Command('audit')
 
       if (opts.simulate) {
         simResult = await runSimulation({ target: effectiveTarget, agent: 'claude-code', mode: opts.mode || 'deterministic' });
+        const isLiveMode = opts.mode === 'live';
+        const simSummary = isLiveMode
+          ? `Flight Simulator: ${simResult.telemetry.outcome.toUpperCase()} (${simResult.telemetry.totalTokensBurned} tokens burned, TTFTC ${simResult.telemetry.ttftcMs || simResult.telemetry.totalDurationMs}ms)`
+          : `Flight Simulator [Deterministic estimate]: ${simResult.telemetry.outcome.toUpperCase()} (${simResult.telemetry.totalTokensBurned} tokens heuristic)`;
         scorecard.simulation = {
           passed: simResult.telemetry.outcome === 'completed',
           durationMs: simResult.telemetry.totalDurationMs,
-          summary: `Flight Simulator: ${simResult.telemetry.outcome.toUpperCase()} (${simResult.telemetry.totalTokensBurned} tokens burned, TTFTC ${simResult.telemetry.ttftcMs || simResult.telemetry.totalDurationMs}ms)`,
+          summary: simSummary,
           metrics: {
             ragNavigationSteps: simResult.telemetry.steps.length,
             authStagesResolved: simResult.telemetry.steps.find((s: any) => s.phase === 'auth')?.status === 'pass' ? 6 : 1,

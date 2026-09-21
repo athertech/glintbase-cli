@@ -12,6 +12,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "action.yml",
     "README.md",
     "LICENSE"
