@@ -16,7 +16,7 @@ import { estimateTokens, calculateDollarTax } from '../telemetry/tokenTax.js';
 import { SchemaFrictionEvaluator } from '../telemetry/schemaFriction.js';
 import { SafetyGuard } from '../missions/safetyGuard.js';
 import { IntentParser } from '../missions/intentParser.js';
-import { fetchResource } from '../../core/fetchResource.js';
+import { fetchResource } from '@glintbase/scanner-core';
 import { inspectWorkspaceGaps } from '../../session/agentBrain.js';
 import { scanRoutes } from '../../ast/routeScanner.js';
 import * as fs from 'node:fs';

@@ -26,8 +26,8 @@ import { indexDocumentation, generateLlmsTxt, generateLlmsFullTxt } from '../ast
 import { generateAuthMd, generateRobotsTxt, generateArdJson, generateMcpRoute } from '../ast/generators.js';
 import { injectWebMcpProvider } from '../ast/injector.js';
 import { ArsSandbox } from '../core/sandbox.js';
-import { fetchResource } from '../core/fetchResource.js';
-import { runArs2Probes } from '../core/probes/index.js';
+import { fetchResource } from '@glintbase/scanner-core';
+import { runArs2Probes } from '@glintbase/scanner-core';
 import { executeCodebaseAudit } from '../session/agentBrain.js';
 import { brand } from '../output/banner.js';
 

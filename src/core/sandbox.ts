@@ -1,5 +1,5 @@
 /**
- * In-Memory ARS 3.0 Verification Sandbox & Empirical Agent Simulation Engine.
+ * In-Memory ARS 3.2 Verification Sandbox & Empirical Agent Simulation Engine.
  * Specification: GLINTBASE_AUDIT_3_0_UPGRADE_SPEC.md (Section 5)
  *
  * Holds proposed artifacts in an in-memory virtual filesystem and executes:
@@ -8,8 +8,8 @@
  */
 
 import type { ProposedArtifact, SandboxVerificationResult } from '../harness/types.js';
-import type { SimulationResult } from './checks/types.js';
-import { fetchResource } from './fetchResource.js';
+import type { SimulationResult } from '@glintbase/scanner-core';
+import { fetchResource } from '@glintbase/scanner-core';
 
 export class ArsSandbox {
   private vfs: Map<string, string> = new Map();

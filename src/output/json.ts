@@ -3,7 +3,7 @@
  * Suitable for piping to jq, CI logs, and machine consumption.
  */
 
-import type { Ars2Scorecard } from '../core/probes/index.js';
+import type { Ars2Scorecard } from '@glintbase/scanner-core';
 
 export function formatArs2Json(scorecard: Ars2Scorecard): string {
   return JSON.stringify(scorecard, null, 2);

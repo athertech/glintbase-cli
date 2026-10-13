@@ -417,7 +417,7 @@ export const fixCommand = new Command('fix')
       console.log(pc.green(`  ✦ Successfully applied ${appliedCount} remediation(s)!`));
 
       if (targetBranchName && appliedFiles.length > 0) {
-        const commitMsg = 'chore(agent-readiness): autonomous ARS 3.0 remediation via Glintbase [skip ci]';
+        const commitMsg = 'chore(agent-readiness): autonomous ARS 3.2 remediation via Glintbase [skip ci]';
         const committed = commitChanges(appliedFiles, commitMsg, cwd);
         if (committed) {
           console.log(pc.green(`  ✔ Committed ${appliedFiles.length} file(s) to branch '${targetBranchName}'.`));
@@ -431,7 +431,7 @@ export const fixCommand = new Command('fix')
         }
       }
 
-      console.log(pc.dim('  Re-evaluating agent readiness score via authentic ARS 3.0 AST audit...'));
+      console.log(pc.dim('  Re-evaluating agent readiness score via authentic ARS 3.2 AST audit...'));
       const scorecard = await runCodebaseArs3Audit(cwd);
       const hudLayers = [
         {
@@ -461,7 +461,7 @@ export const fixCommand = new Command('fix')
           applicable: scorecard.layers.payments.applicable,
         },
       ];
-      printScorecardHud(scorecard.score, 'ars-3.0.0', hudLayers, scorecard.grade, scorecard.gradeLabel);
+      printScorecardHud(scorecard.score, scorecard.version, hudLayers, scorecard.grade, scorecard.gradeLabel);
       console.log(`  ${pc.bold('Status:')} Updated to ${pc.bold(pc.white(`${scorecard.score}/100`))} (${pc.green(`Grade ${scorecard.grade}`)}) · ${scorecard.archetype.label}\n`);
     } else {
       console.log(pc.dim('  No changes were applied to the repository.\n'));

@@ -1,5 +1,5 @@
 /**
- * Run comprehensive ARS 3.0 agent readiness audit against a local codebase.
+ * Run comprehensive ARS 3.2 agent readiness audit against a local codebase.
  * Evaluates white-box AST, configuration files, headers, routes,
  * and optional semantic artifacts.
  */
@@ -12,10 +12,10 @@ import { inspectMiddleware } from '../ast/inspectors/middlewareInspector.js';
 import { inspectRouteHeaders } from '../ast/inspectors/headerInspector.js';
 import { inspectRouteAst } from '../ast/inspectors/routeAstInspector.js';
 import { inspectCanaryRoutes } from '../ast/inspectors/canaryRouteInspector.js';
-import { runArs3Probes } from './probes/index.js';
+import { runArs3Probes } from '@glintbase/scanner-core';
 import { evaluateArtifactSemantics } from './aiEvaluator.js';
 import { ArsSandbox } from './sandbox.js';
-import type { Ars3Scorecard } from './checks/types.js';
+import type { Ars3Scorecard } from '@glintbase/scanner-core';
 
 export interface CodebaseAuditOptions {
   spec?: 'ars' | 'strict' | 'core';

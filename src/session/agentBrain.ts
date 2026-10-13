@@ -32,8 +32,8 @@ import {
 } from '../ast/generators.js';
 import { generateLlmsTxt } from '../ast/docIndexer.js';
 import { ArsSandbox } from '../core/sandbox.js';
-import { runArs2Probes } from '../core/probes/index.js';
-import { scoreBand } from '../core/scoreBand.js';
+import { runArs2Probes } from '@glintbase/scanner-core';
+import { scoreBand } from '@glintbase/scanner-core';
 import { resolveModelProvider } from '../harness/providers/resolver.js';
 import { brand } from '../output/banner.js';
 

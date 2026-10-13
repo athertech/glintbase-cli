@@ -167,7 +167,7 @@ export async function evaluateArtifactSemantics(
     return evaluateOfflineHeuristic(artifactType, content);
   }
 
-  const systemPrompt = `You are the Glintbase ARS 3.0 Agent Readiness Evaluator.
+  const systemPrompt = `You are the Glintbase ARS 3.2 Agent Readiness Evaluator.
 Your role is to rigorously evaluate developer documentation, API schemas, and protocol files
 for autonomous AI agents (Claude Code, Cursor, Windsurf, Devin, autonomous LLM swarms).
 Score objectively from 0 to 100 based on whether an autonomous agent can understand and act upon this artifact without hallucination.

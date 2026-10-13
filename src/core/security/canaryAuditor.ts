@@ -6,7 +6,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { fetchResource } from '../fetchResource.js';
+import { fetchResource } from '@glintbase/scanner-core';
 
 export interface CanaryAuditResult {
   target: string;

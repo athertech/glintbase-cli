@@ -150,7 +150,7 @@ Autonomous AI coding agents (Claude Code, Cursor, Windsurf, Devin, Antigravity) 
 |---|---|---|
 | **OWASP Top 10 for LLMs/Agents** | ${owaspCompliance.every(o => o.status === 'PASS') ? 'PASS' : 'ACTION REQUIRED'} | ${owaspCompliance.filter(o => o.status === 'PASS').length} / ${owaspCompliance.length} verified |
 | **ISO/IEC 42001 (AIMS)** | ${iso42001Compliance.every(i => i.status === 'PASS') ? 'PASS' : 'ACTION REQUIRED'} | ${iso42001Compliance.filter(i => i.status === 'PASS').length} / ${iso42001Compliance.length} verified |
-| **ARS 3.0 Agent Readiness** | ${audit.score >= 75 ? 'PASS' : 'FAIL'} | Composite Score: ${audit.score}/100 (Grade ${audit.grade}) |
+| **ARS 3.2 Agent Readiness** | ${audit.score >= 75 ? 'PASS' : 'FAIL'} | Composite Score: ${audit.score}/100 (Grade ${audit.grade}) |
 
 ---
 

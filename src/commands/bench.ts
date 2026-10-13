@@ -9,10 +9,11 @@ import { Command } from 'commander';
 import { resolve } from 'path';
 import { existsSync } from 'fs';
 import pc from 'picocolors';
-import { runArs2Probes } from '../core/probes/index.js';
+import { runArs2Probes } from '@glintbase/scanner-core';
 import { renderCommandHeader, brand } from '../output/banner.js';
 import { renderProgressBar, scoreColor } from '../output/terminal.js';
 import { executeCodebaseAudit } from '../session/agentBrain.js';
+import { ARS_LABEL } from '../version.js';
 
 export interface BenchmarkFixture {
   id: string;
@@ -65,7 +66,7 @@ export const benchCommand = new Command('bench')
     if (!opts.json) {
       renderCommandHeader('Agent Readiness Benchmark (ARB)');
       console.log(`  ${pc.dim('Suite       :')} ${pc.bold(pc.white(suiteName.toUpperCase()))}`);
-      console.log(`  ${pc.dim('Evaluator   :')} ARS 2.0 Dynamic Scoring Engine (${isLocalSuite ? 'Deterministic Offline AST' : 'Remote Probes + AST'})`);
+      console.log(`  ${pc.dim('Evaluator   :')} ${ARS_LABEL} Scoring Engine (${isLocalSuite ? 'Deterministic Offline AST' : 'Remote Probes + AST'})`);
       console.log(`  ${pc.dim('Fixtures    :')} ${fixtureCount} benchmark targets\n`);
     }
 
@@ -129,7 +130,7 @@ export const benchCommand = new Command('bench')
             name: fixture.name,
             archetype: scorecard.archetype.label,
             score: scorecard.score,
-            grade: scorecard.score >= 90 ? 'A' : scorecard.score >= 75 ? 'B' : scorecard.score >= 50 ? 'C' : 'D',
+            grade: scorecard.grade ?? (scorecard.score >= 90 ? 'A' : scorecard.score >= 75 ? 'B' : scorecard.score >= 50 ? 'C' : 'D'),
             durationMs: duration,
             passedProbes: scorecard.score >= 70 ? 4 : scorecard.score >= 40 ? 2 : 1,
             totalProbes: 4,

@@ -1,13 +1,14 @@
 /**
- * Modern Terminal UI for Glintbase CLI (ARS 3.0 & ARS 2.0)
+ * Modern Terminal UI for Glintbase CLI (ARS 3.2 engine via @glintbase/scanner-core)
  * Styled in signature Glintbase Solar Neon Orange with hairline typography,
  * HUD scorecards, step trees, and remediation diff cards.
  */
 
 import pc from 'picocolors';
 import type { ResolvedConfig } from '../config.js';
-import { scoreBandLabel, getArsGrade } from '../core/scoreBand.js';
-import type { ArsGrade } from '../core/checks/types.js';
+import { scoreBandLabel, getArsGrade } from '@glintbase/scanner-core';
+import type { ArsGrade, ScanEvidenceSummary } from '@glintbase/scanner-core';
+import { ARS_LABEL, CHECK_COUNT } from '../version.js';
 import { brand } from './banner.js';
 
 export function renderProgressBar(score: number, maxScore = 100, length = 24): string {
@@ -34,12 +35,12 @@ export function printHeader(
   config?: ResolvedConfig,
   archetype = 'Developer Platform / API',
   denominator = 85,
-  spec = 'ARS 3.0 Comprehensive (119 Open Checks)',
+  spec = `${ARS_LABEL} Comprehensive (${CHECK_COUNT} Open Checks)`,
   modelDisplay?: string
 ): void {
   const width = 74;
   console.log('');
-  console.log(`  ${pc.dim('┌')}  ${brand.orangeBold('GLINTBASE AUDIT 3.0')} ${pc.dim('·')} ${pc.white('Living Agent Readiness')}`);
+  console.log(`  ${pc.dim('┌')}  ${brand.orangeBold(`GLINTBASE AUDIT · ${ARS_LABEL}`)} ${pc.dim('·')} ${pc.white('Living Agent Readiness')}`);
   console.log(`  ${pc.dim('│')}  ${pc.dim('Target     :')} ${pc.bold(pc.white(url))}`);
   console.log(`  ${pc.dim('│')}  ${pc.dim('Standard   :')} ${pc.cyan(spec)}`);
   console.log(`  ${pc.dim('│')}  ${pc.dim('Archetype  :')} ${pc.green(archetype)}`);
@@ -122,7 +123,7 @@ export function printStepTreeFooter(durationMs: number): void {
 
 export function printScorecardHud(
   score: number,
-  version = 'ars-3.0.0',
+  version?: string,
   layers?: Array<{ name: string; score: number; maxScore: number; statusText?: string; applicable?: boolean }>,
   grade?: ArsGrade,
   gradeLabel?: string
@@ -136,6 +137,9 @@ export function printScorecardHud(
   console.log(`  ${pc.dim('│')}  ${pc.bold('OVERALL SCORE:')} ${color(pc.bold(`${score} / 100`))}`);
   console.log(`  ${pc.dim('│')}  ${pc.bold('GRADE        :')} ${color(pc.bold(`${band}`))} ${pc.dim(`(${label})`)}`);
   console.log(`  ${pc.dim('│')}  ${pc.bold('HEALTH METER :')} ${renderProgressBar(score, 100, 24)}`);
+  if (version) {
+    console.log(`  ${pc.dim('│')}  ${pc.bold('SCORE MODEL  :')} ${pc.dim(version)}`);
+  }
 
   if (layers && layers.length > 0) {
     console.log(`  ${pc.dim('├' + '─'.repeat(width))}`);
@@ -152,6 +156,27 @@ export function printScorecardHud(
   }
 
   console.log(`  ${pc.dim('└' + '─'.repeat(width))}\n`);
+}
+
+/**
+ * How much of the rubric the scan could actually measure (scorecard.evidence).
+ * Mirrors the evidence line scan.glintbase.dev shows next to a score.
+ */
+export function printEvidenceSummary(evidence: ScanEvidenceSummary | undefined): void {
+  if (!evidence) return;
+  const pct = Math.round(evidence.baseCoverage * 100);
+  console.log(
+    `  ${pc.dim(`Evidence: measured ${evidence.checksEvaluated} of ${evidence.checksRegistered} checks · ${pct}% of scored points verified`)}`
+  );
+  if (evidence.lowConfidenceLayers.length) {
+    console.log(
+      `  ${pc.yellow(`Low evidence: ${evidence.lowConfidenceLayers.join(', ')} (under half of their scored checks could be verified)`)}`
+    );
+  }
+  if (!evidence.targetReachable) {
+    console.log(`  ${pc.red('Target homepage never answered: this score is not meaningful.')}`);
+  }
+  console.log('');
 }
 
 export function printRemediationDiffCard(

@@ -5,6 +5,9 @@
  * Transports:
  * - Default: Stdio transport (for Claude Code, Cursor, Windsurf)
  * - Flag --http: Streamable HTTP SSE transport (for remote agents, Docker, webhooks)
+ *
+ * Subcommands:
+ * - glintbase mcp lint <url>: lint a remote MCP server (see ./mcpLint.ts)
  */
 
 import { Command } from 'commander';
@@ -12,6 +15,7 @@ import pc from 'picocolors';
 import { createGlintbaseMcpServer, startMcpStdio, startMcpHttp } from '../mcp/server.js';
 import { establishMcpTunnel, formatTunnelInstructions } from '../mcp/tunnel.js';
 import { brand, renderCommandHeader } from '../output/banner.js';
+import { mcpLintCommand } from './mcpLint.js';
 
 export const mcpCommand = new Command('mcp')
   .description('Launch the Glintbase MCP Server for AI coding agents (Cursor, Claude Code, Windsurf, ChatGPT)')
@@ -61,3 +65,6 @@ export const mcpCommand = new Command('mcp')
       await startMcpStdio(server);
     }
   });
+
+// `glintbase mcp` launches the server; `glintbase mcp lint <url>` lints a remote one.
+mcpCommand.addCommand(mcpLintCommand);

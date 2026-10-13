@@ -1,8 +1,8 @@
 /**
- * Glintbase MCP Tool Suite (ARS 3.0)
+ * Glintbase MCP Tool Suite (ARS 3.2 engine via @glintbase/scanner-core)
  *
  * 17 Composable, Production-Grade MCP Tools:
- * 1.  glintbase_audit                 Full ARS 3.0 audit (AST + live probes, dynamic denominator)
+ * 1.  glintbase_audit                 Full ARS 3.2 audit (AST + live probes, dynamic denominator)
  * 2.  glintbase_get_score             Ultra-compact score card (<200 tokens)
  * 3.  glintbase_discover_surfaces     Machine entrypoint detection matrix
  * 4.  glintbase_simulate_flight       Multi-agent flight simulator (Claude Code, Cursor, Perplexity, Swarm)
@@ -27,7 +27,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { runCodebaseArs3Audit } from '../../core/codebaseAudit.js';
-import { runArs3Probes } from '../../core/probes/index.js';
+import { runArs3Probes, validateScanUrl, type Ars3Scorecard } from '@glintbase/scanner-core';
+import { ARS_LABEL, CHECK_COUNT } from '../../version.js';
 import { resolveAuditTarget } from '../../core/urlPolicy.js';
 import { inspectWorkspaceGaps } from '../../session/agentBrain.js';
 import { scanRoutes } from '../../ast/routeScanner.js';
@@ -60,23 +61,37 @@ import { verifyAgentAuth } from '../../core/security/authVerifier.js';
 import { auditMutationSafety } from '../../core/security/mutationAuditor.js';
 import { generateComplianceReport } from '../../core/security/complianceReporter.js';
 
+/**
+ * Runs the ARS engine on a URL (after the engine's URL policy) or the codebase auditor
+ * on a directory. Private / loopback URLs are refused by the shared policy.
+ */
+async function auditTarget(isUrl: boolean, target: string): Promise<Ars3Scorecard> {
+  if (!isUrl) return runCodebaseArs3Audit(target);
+  const policy = validateScanUrl(target, { allowHttp: true });
+  if (!policy.ok || !policy.url) {
+    throw new Error(
+      `Cannot audit ${target}: ${policy.message || 'URL rejected by the scan URL policy'} (${policy.code}). ` +
+        'Live probes only run against public hosts; pass a project directory to audit a local codebase.'
+    );
+  }
+  return runArs3Probes(policy.url);
+}
+
 export function registerAllTools(server: McpServer): void {
   // ── 1. glintbase_audit ──────────────────────────────────────────────────────────
   server.tool(
     'glintbase_audit',
-    `Execute comprehensive ARS 3.0 agent-readiness audit across 6 pillars (Discovery, Access, Usability, Semantic, Architecture, Safety). Accepts a local directory or remote URL. Returns letter grade (A+ to F), total score (0-100), dynamic denominator breakdown, and top blockers with actionable remediation recipes. Set verbose=true for all 119 individual check results.`,
+    `Execute a comprehensive ${ARS_LABEL} agent-readiness audit (same engine as scan.glintbase.dev) across 4 layers (Discovery, Access, Usability, Payments). Accepts a local directory or public URL. Returns letter grade (A+ to F), total score (0-100), score_version, evidence coverage, dynamic denominator breakdown, and top blockers with actionable remediation recipes. Set verbose=true for all individual check results (${CHECK_COUNT} registered checks).`,
     {
       target: z.string().optional().describe('Target codebase directory (e.g. ".") or URL (e.g. "https://docs.example.com")'),
       failUnder: z.number().optional().describe('Optional threshold (0-100) to check against'),
-      verbose: z.boolean().optional().describe('Include exhaustive list of all 119 check results (default: false)'),
+      verbose: z.boolean().optional().describe(`Include exhaustive list of all check results (${CHECK_COUNT} registered; default: false)`),
     },
     async ({ target = '.', failUnder, verbose = false }) => {
       try {
         const targetInfo = resolveAuditTarget(target);
         const effectiveTarget = targetInfo.isUrl ? (targetInfo.normalizedUrl || targetInfo.target) : targetInfo.target;
-        const scorecard = targetInfo.isUrl
-          ? await runArs3Probes(effectiveTarget)
-          : await runCodebaseArs3Audit(effectiveTarget);
+        const scorecard = await auditTarget(targetInfo.isUrl, effectiveTarget);
 
         const blockers = (scorecard.results || [])
           .filter(c => c.status === 'fail' || c.status === 'warn')
@@ -105,6 +120,8 @@ export function registerAllTools(server: McpServer): void {
           archetype: scorecard.archetype.label,
           grade: scorecard.grade,
           score: scorecard.score,
+          score_version: scorecard.version,
+          evidence: scorecard.evidence,
           baseDenominator: scorecard.baseDenominator,
           activeDenominator: scorecard.activeDenominator,
           totalEarned: scorecard.totalEarned,
@@ -134,7 +151,7 @@ export function registerAllTools(server: McpServer): void {
   // ── 2. glintbase_get_score ──────────────────────────────────────────────────────
   server.tool(
     'glintbase_get_score',
-    `Fetch an ultra-compact ARS 3.0 score card (<200 tokens). Ideal for quick checks and CI status monitoring without burning agent context window.`,
+    `Fetch an ultra-compact ${ARS_LABEL} score card (<200 tokens). Ideal for quick checks and CI status monitoring without burning agent context window.`,
     {
       target: z.string().optional().describe('Target codebase directory or URL (default: ".")'),
       failUnder: z.number().optional().describe('Optional quality gate threshold (e.g. 75)'),
@@ -143,13 +160,12 @@ export function registerAllTools(server: McpServer): void {
       try {
         const targetInfo = resolveAuditTarget(target);
         const effectiveTarget = targetInfo.isUrl ? (targetInfo.normalizedUrl || targetInfo.target) : targetInfo.target;
-        const scorecard = targetInfo.isUrl
-          ? await runArs3Probes(effectiveTarget)
-          : await runCodebaseArs3Audit(effectiveTarget);
+        const scorecard = await auditTarget(targetInfo.isUrl, effectiveTarget);
 
         const result = {
           target: effectiveTarget,
           score: scorecard.score,
+          score_version: scorecard.version,
           grade: scorecard.grade,
           archetype: scorecard.archetype.label,
           passesGate: scorecard.score >= failUnder,
@@ -567,7 +583,7 @@ ${mermaidDiagram}`;
   // ── 9. glintbase_sandbox_validate ──────────────────────────────────────────────
   server.tool(
     'glintbase_sandbox_validate',
-    `Validate one or more prospective artifact files in an in-memory virtual filesystem against ARS 3.0 rules and simulated agent navigation before writing to disk.`,
+    `Validate one or more prospective artifact files in an in-memory virtual filesystem against ARS 3.2 rules and simulated agent navigation before writing to disk.`,
     {
       files: z.array(
         z.object({

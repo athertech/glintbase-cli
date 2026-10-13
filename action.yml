@@ -1,5 +1,5 @@
 name: 'Glintbase Agent-Readiness CI Gate'
-description: 'Enterprise CI quality gate & PR drift shield for autonomous AI agents (ARS 3.0)'
+description: 'Enterprise CI quality gate & PR drift shield for autonomous AI agents (ARS 3.2)'
 author: 'Glintbase'
 
 branding:
@@ -12,7 +12,7 @@ inputs:
     required: false
     default: '.'
   fail-under:
-    description: 'Minimum ARS 3.0 score required to pass the CI gate'
+    description: 'Minimum ARS 3.2 score required to pass the CI gate'
     required: false
     default: '75'
   base-branch:
@@ -28,7 +28,7 @@ inputs:
     required: false
     default: ${{ github.token }}
   comment:
-    description: 'Whether to post or update a sticky ARS 3.0 scorecard comment on pull requests'
+    description: 'Whether to post or update a sticky ARS 3.2 scorecard comment on pull requests'
     required: false
     default: 'true'
 
@@ -37,7 +37,7 @@ outputs:
     description: 'Whether the agent readiness gate passed (true/false)'
     value: ${{ steps.gate.outputs.passed }}
   ars_score:
-    description: 'The overall ARS 3.0 agent readiness score (0-100)'
+    description: 'The overall ARS 3.2 agent readiness score (0-100)'
     value: ${{ steps.gate.outputs.ars_score }}
   archetype:
     description: 'Detected architectural archetype'

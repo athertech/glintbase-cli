@@ -1,31 +1,42 @@
 /**
- * Comprehensive ARS 3.0 Audit Engine Test Suite
- * Specification: GLINTBASE_AUDIT_3_0_UPGRADE_SPEC.md
+ * ARS audit engine tests, run against @glintbase/scanner-core (ARS 3.2).
+ * The registry in the package is the source of truth for counts and check ids.
  */
 
 import { describe, it, expect } from 'vitest';
-import { ALL_CHECKS, getChecksForLayer, getChecksForSpec, getBonusChecks } from '../src/core/checks/registry.js';
-import { runArs3Probes } from '../src/core/probes/index.js';
-import { classifyArchetype } from '../src/core/archetype.js';
-import { getArsGrade } from '../src/core/scoreBand.js';
+import { ALL_CHECKS, getAllChecks, getChecksForLayer, getChecksForSpec, getBonusChecks, ARS_SCORE_VERSION } from '@glintbase/scanner-core';
+import { CHECK_COUNT } from '../src/version.js';
+import { runArs3Probes } from '@glintbase/scanner-core';
+import { classifyArchetype } from '@glintbase/scanner-core';
+import { getArsGrade } from '@glintbase/scanner-core';
 import { ArsSandbox } from '../src/core/sandbox.js';
 import { inspectMiddleware } from '../src/ast/inspectors/middlewareInspector.js';
 import { inspectRouteAst } from '../src/ast/inspectors/routeAstInspector.js';
 import { inspectCanaryRoutes } from '../src/ast/inspectors/canaryRouteInspector.js';
 
-describe('ARS 3.0 Check Taxonomy & Registry (119 Checks)', () => {
-  it('registers exactly 119 open protocol checks across 4 layers', () => {
-    expect(ALL_CHECKS.length).toBe(119);
+describe('ARS 3.2 Check Taxonomy & Registry (129 Checks)', () => {
+  it('registers exactly 129 open protocol checks across 4 layers', () => {
+    expect(ALL_CHECKS.length).toBe(129);
+    expect(getAllChecks().length).toBe(ALL_CHECKS.length);
+    expect(CHECK_COUNT).toBe(ALL_CHECKS.length);
 
     const l1 = getChecksForLayer('discovery');
     const l2 = getChecksForLayer('access');
     const l3 = getChecksForLayer('usability');
     const l4 = getChecksForLayer('payments');
 
-    expect(l1.length).toBe(16);
-    expect(l2.length).toBe(41);
-    expect(l3.length).toBe(56);
+    expect(l1.length).toBe(17);
+    expect(l2.length).toBe(45);
+    expect(l3.length).toBe(61);
     expect(l4.length).toBe(6);
+    expect(l1.length + l2.length + l3.length + l4.length).toBe(ALL_CHECKS.length);
+  });
+
+  it('stamps scorecards with the package score version', async () => {
+    const scorecard = await runArs3Probes('http://localhost:3000', { localContext: { isLocalCodebase: true } });
+    expect(scorecard.version).toBe(ARS_SCORE_VERSION);
+    expect(scorecard.version).toBe('ars-3.2.0');
+    expect(scorecard.evidence?.checksRegistered).toBe(ALL_CHECKS.length);
   });
 
   it('filters 12 essential checks for --spec core', () => {
@@ -110,8 +121,8 @@ describe('Mathematical Scoring Engine & Dynamic Denominators', () => {
   });
 });
 
-describe('Letter Grade Alignment (ARS 3.0 Standard)', () => {
-  it('correctly maps scores to ARS 3.0 letter grade bands', () => {
+describe('Letter Grade Alignment (ARS 3.2 Standard)', () => {
+  it('correctly maps scores to ARS letter grade bands', () => {
     expect(getArsGrade(98).grade).toBe('A+');
     expect(getArsGrade(95).grade).toBe('A+');
     expect(getArsGrade(90).grade).toBe('A');
@@ -124,8 +135,11 @@ describe('Letter Grade Alignment (ARS 3.0 Standard)', () => {
   });
 });
 
+// ARS 3.2: a declared MCP route without a reachable server cannot be verified, so the
+// kind-specific tool check is 'skip' (excluded, never passed by assumption). ARS 3.0
+// credited it as a pass. The kind still selects which rubric applies.
 describe('Kind-Aware MCP Evaluation Rubric', () => {
-  it('rewards Docs MCP for focused 1-3 tool surfaces and zero auth', async () => {
+  it('uses the Docs focus rubric for kind=docs (breadth skipped)', async () => {
     const docsScorecard = await runArs3Probes('http://localhost:3000', {
       kind: 'docs',
       localContext: {
@@ -135,14 +149,16 @@ describe('Kind-Aware MCP Evaluation Rubric', () => {
 
     const focusCheck = docsScorecard.results.find(c => c.checkId === 'mcp-tools-focus');
     expect(focusCheck).toBeDefined();
-    expect(focusCheck?.status).toBe('pass');
-    expect(focusCheck?.earnedPoints).toBe(3);
+    expect(focusCheck?.status).toBe('skip');
+    expect(focusCheck?.message).toMatch(/not verifiable/i);
+    expect(focusCheck?.earnedPoints).toBe(0);
 
     const breadthCheck = docsScorecard.results.find(c => c.checkId === 'mcp-tools-breadth');
     expect(breadthCheck?.status).toBe('skip');
+    expect(breadthCheck?.message).toMatch(/Docs/);
   });
 
-  it('rewards Product MCP for tool breadth (>=3 tools)', async () => {
+  it('uses the Product breadth rubric for kind=product (focus skipped)', async () => {
     const prodScorecard = await runArs3Probes('http://localhost:3000', {
       kind: 'product',
       localContext: {
@@ -152,11 +168,12 @@ describe('Kind-Aware MCP Evaluation Rubric', () => {
 
     const breadthCheck = prodScorecard.results.find(c => c.checkId === 'mcp-tools-breadth');
     expect(breadthCheck).toBeDefined();
-    expect(breadthCheck?.status).toBe('pass');
-    expect(breadthCheck?.earnedPoints).toBe(3);
+    expect(breadthCheck?.status).toBe('skip');
+    expect(breadthCheck?.message).toMatch(/not verifiable/i);
 
     const focusCheck = prodScorecard.results.find(c => c.checkId === 'mcp-tools-focus');
     expect(focusCheck?.status).toBe('skip');
+    expect(focusCheck?.message).toMatch(/Product/);
   });
 });
 
@@ -186,9 +203,12 @@ describe('WorkOS auth.md 8-Stage Parser & Non-Mutating GET Simulation', () => {
     expect(structCheck?.status).toBe('pass');
     expect(structCheck?.earnedPoints).toBe(2);
 
+    // ARS 3.2: the walkthrough needs live PRM -> AS metadata; a local handbook alone is
+    // not evidence, so the bonus is 'na' (ARS 3.0 passed it from the file text).
     const simCheck = scorecard.results.find(c => c.checkId === 'auth-md-walkthrough-simulation');
     expect(simCheck).toBeDefined();
-    expect(simCheck?.status).toBe('pass');
+    expect(simCheck?.status).toBe('na');
+    expect(simCheck?.earnedPoints).toBe(0);
   });
 });
 

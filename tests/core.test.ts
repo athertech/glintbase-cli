@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { classifyArchetype } from '../src/core/archetype.js';
-import { scoreBand, scoreBandLabel } from '../src/core/scoreBand.js';
+import { classifyArchetype } from '@glintbase/scanner-core';
+import { scoreBand, scoreBandLabel } from '@glintbase/scanner-core';
 import { validateScanUrl } from '../src/core/urlPolicy.js';
 
 describe('ARS 2.0 Archetype Classifier & Dynamic Denominator', () => {
@@ -49,10 +49,12 @@ describe('URL Policy & SSRF Protection', () => {
     expect(res.url).toBe('https://api.github.com/');
   });
 
-  it('permits localhost and dev ports for local audits', () => {
+  // ARS 3.2: the CLI uses the engine's URL policy (same as scan.glintbase.dev), which
+  // refuses loopback targets. The ARS 3.0 CLI-only policy allowed them.
+  it('blocks localhost targets (shared engine policy)', () => {
     const res = validateScanUrl('http://localhost:3000');
-    expect(res.ok).toBe(true);
-    expect(res.url).toBe('http://localhost:3000/');
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe('SSRF_BLOCKED');
   });
 
   it('blocks cloud metadata endpoints', () => {
@@ -61,10 +63,15 @@ describe('URL Policy & SSRF Protection', () => {
     expect(res.code).toBe('SSRF_BLOCKED');
   });
 
-  it('correctly defaults bare localhost to http scheme', () => {
-    const res = validateScanUrl('localhost:3000');
+  it('blocks bare localhost and private network targets', () => {
+    expect(validateScanUrl('localhost:3000').ok).toBe(false);
+    expect(validateScanUrl('http://192.168.1.10').code).toBe('SSRF_BLOCKED');
+  });
+
+  it('defaults bare public domains to https', () => {
+    const res = validateScanUrl('glintbase.dev');
     expect(res.ok).toBe(true);
-    expect(res.url).toBe('http://localhost:3000/');
+    expect(res.url).toBe('https://glintbase.dev/');
   });
 });
 

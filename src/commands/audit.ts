@@ -1,6 +1,6 @@
 /**
  * CLI Command: glintbase audit [target] [options]
- * ARS 3.0 Comprehensive Agent Readiness Standard (119 Checks)
+ * ARS 3.2 Agent Readiness audit, scored by @glintbase/scanner-core (the scan.glintbase.dev engine).
  * Claude Code / OpenCode HUD aesthetics, dynamic denominators, kind-aware MCP, and simulation.
  */
 
@@ -8,12 +8,13 @@ import { Command } from 'commander';
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'fs';
 import { join, resolve } from 'path';
 import pc from 'picocolors';
-import { runArs3Probes } from '../core/probes/index.js';
+import { runArs3Probes, validateScanUrl, getCheckById } from '@glintbase/scanner-core';
 import { runCodebaseArs3Audit } from '../core/codebaseAudit.js';
 import { resolveConfig, getEffectiveModelInfo } from '../config.js';
 import { resolveAuditTarget } from '../core/urlPolicy.js';
 import { evaluateArtifactSemantics } from '../core/aiEvaluator.js';
-import { fetchResource } from '../core/fetchResource.js';
+import { fetchResource } from '@glintbase/scanner-core';
+import { ARS_LABEL, CHECK_COUNT, CLI_VERSION } from '../version.js';
 import { brand } from '../output/banner.js';
 import { generateComprehensiveMarkdownReport } from '../output/markdownReport.js';
 import { ArsSandbox } from '../core/sandbox.js';
@@ -27,23 +28,24 @@ import {
   printScorecardHud,
   printRemediationDiffCard,
   printAiEvaluationSummary,
+  printEvidenceSummary,
 } from '../output/terminal.js';
-import type { Ars3Scorecard, CheckResult } from '../core/checks/types.js';
+import type { Ars3Scorecard, CheckResult } from '@glintbase/scanner-core';
 
 export const auditCommand = new Command('audit')
-  .description('Run full ARS 3.0 agent readiness audit against codebase or live domain')
+  .description(`Run full ${ARS_LABEL} agent readiness audit against codebase or live domain`)
   .argument('[target]', 'Target to audit: directory path (defaults to .) or live URL (http:// or https://)', '.')
-  .option('--spec <standard>', 'Audit standard: ars (full 119 checks) | strict | core', 'ars')
+  .option('--spec <standard>', `Audit standard: ars (full ${CHECK_COUNT} checks) | strict | core`, 'ars')
   .option('--kind <kind>', 'Force site kind: product | docs | ecommerce | auto', 'auto')
   .option('--simulate', 'Run empirical agent simulation in-memory', false)
   .option('--mode <mode>', 'Simulation mode: deterministic | live', 'deterministic')
-  .option('-v, --verbose', 'Display all 119 check results line-by-line', false)
+  .option('-v, --verbose', `Display all ${CHECK_COUNT} check results line-by-line`, false)
   .option('--profile <profile>', 'Audit depth: quick | deep', 'deep')
   .option('--offline', 'Force offline deterministic AST & probe execution (no LLM calls)', false)
   .option('--ai', 'Enable AI semantic evaluation using configured model provider')
   .option('--fail-under <n>', 'Exit code 3 if ARS score is below threshold', parseInt)
   .option('--ci', 'CI mode: outputs GitHub Actions markdown summary & parameters', false)
-  .option('--json', 'Output raw JSON scorecard including all 119 checks', false)
+  .option('--json', `Output raw JSON scorecard including all ${CHECK_COUNT} checks`, false)
   .option('--format <format>', 'Output format: text | json | markdown', 'text')
   .option('--report [file]', 'Save comprehensive Markdown audit report to file (defaults to agent-readiness-report.md)')
   .option('-q, --quiet', 'Minimal output (only output score)', false)
@@ -100,6 +102,27 @@ export const auditCommand = new Command('audit')
       }
     } else {
       // 2. Live Remote URL Mode
+      // The engine's URL policy (shared with scan.glintbase.dev) refuses loopback, private
+      // and metadata hosts and non-standard ports. Say so up front instead of reporting
+      // every probe as unreachable.
+      const policy = validateScanUrl(effectiveTarget, { allowHttp: true });
+      if (!policy.ok) {
+        const reason = policy.message || 'URL rejected by the scan URL policy';
+        const hint = policy.code === 'SSRF_BLOCKED' || policy.code === 'PORT_NOT_ALLOWED'
+          ? 'Live probes only run against public hosts on standard ports. To audit a local project, run `glintbase audit <project-dir>` (codebase audit), or expose the dev server on a public URL.'
+          : undefined;
+        if (opts.json || opts.format === 'json') {
+          console.log(JSON.stringify({ error: reason, code: policy.code, target: effectiveTarget, hint }, null, 2));
+        } else if (opts.quiet) {
+          console.log(0);
+        } else {
+          console.error(pc.red(`\n  ✖ Cannot audit ${effectiveTarget}: ${reason} (${policy.code})`));
+          if (hint) console.error(pc.dim(`    ${hint}`));
+          console.error('');
+        }
+        process.exit(2);
+      }
+
       // Preflight reachability check: cleanly abort on DNS failure, connection refused, or connect timeout
       const preflight = await fetchResource(effectiveTarget, {
         method: 'GET',
@@ -187,7 +210,8 @@ export const auditCommand = new Command('audit')
 
     // Output Mode: JSON
     if (opts.json || opts.format === 'json') {
-      console.log(JSON.stringify(scorecard, null, 2));
+      // score_version mirrors the field name scan.glintbase.dev uses for the same value.
+      console.log(JSON.stringify({ score_version: scorecard.version, cli_version: CLI_VERSION, ...scorecard }, null, 2));
       return;
     }
 
@@ -230,7 +254,7 @@ export const auditCommand = new Command('audit')
       config,
       scorecard.archetype.label,
       scorecard.activeDenominator,
-      `ARS 3.0 ${spec.toUpperCase()} (${scorecard.results.length} Checks)`,
+      `${ARS_LABEL} ${spec.toUpperCase()} (${scorecard.results.length} of ${CHECK_COUNT} Checks)`,
       modelDisplay
     );
 
@@ -258,10 +282,9 @@ export const auditCommand = new Command('audit')
       });
 
     for (const c of checksToPrint) {
-      const layerShort = c.checkId.startsWith('robots') || c.checkId.startsWith('ard') || c.checkId.startsWith('ai-catalog') || c.checkId.startsWith('wikipedia') || c.checkId.startsWith('brand') || c.checkId.startsWith('agent') || c.checkId.startsWith('npm') || c.checkId.startsWith('skills') ? 'L1'
-        : c.checkId.startsWith('content') || c.checkId.startsWith('page') || c.checkId.startsWith('anti-spa') || c.checkId.startsWith('llms') || c.checkId.startsWith('markdown') || c.checkId.startsWith('code-fence') || c.checkId.startsWith('openapi') || c.checkId.startsWith('developer') || c.checkId.startsWith('ssl') || c.checkId.startsWith('cors') ? 'L2'
-        : c.checkId.startsWith('mcp') || c.checkId.startsWith('auth') || c.checkId.startsWith('webmcp') || c.checkId.startsWith('api') || c.checkId.startsWith('oauth') ? 'L3'
-        : 'L4';
+      // The registry owns each check's layer; id prefixes are not reliable.
+      const layer = c.layer ?? getCheckById(c.checkId)?.layer;
+      const layerShort = layer === 'discovery' ? 'L1' : layer === 'access' ? 'L2' : layer === 'usability' ? 'L3' : 'L4';
 
       const ptsText = c.status === 'pass'
         ? `+${c.earnedPoints} pt${c.earnedPoints === 1 ? '' : 's'}`
@@ -330,7 +353,8 @@ export const auditCommand = new Command('audit')
       },
     ];
 
-    printScorecardHud(scorecard.score, 'ars-3.0.0', hudLayers, scorecard.grade, scorecard.gradeLabel);
+    printScorecardHud(scorecard.score, scorecard.version, hudLayers, scorecard.grade, scorecard.gradeLabel);
+    printEvidenceSummary(scorecard.evidence);
 
     // Actionable Remediations
     if (scorecard.remediations.length > 0) {
@@ -340,7 +364,7 @@ export const auditCommand = new Command('audit')
       }
       console.log(`  Run ${brand.orangeBold('glintbase fix')} to apply verified remediations automatically.\n`);
     } else {
-      console.log(pc.green('  ✦ Codebase is fully compliant with ARS 3.0 Living Agent standards!\n'));
+      console.log(pc.green(`  ✦ Codebase is fully compliant with ${ARS_LABEL} Living Agent standards!\n`));
     }
 
     // Comprehensive Markdown Report Generation (File Export)

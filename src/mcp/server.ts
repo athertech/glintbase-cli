@@ -1,5 +1,5 @@
 /**
- * Glintbase MCP Server Engine (ARS 3.0)
+ * Glintbase MCP Server Engine (ARS 3.2)
  *
  * Implements the Anthropic Model Context Protocol server exposing:
  * - 13 glintbase_* agent tools
@@ -13,11 +13,12 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { registerSkillPromptsAndResources } from './skills/index.js';
 import { registerAllTools } from './tools/index.js';
+import { CLI_VERSION, ARS_SCORE_VERSION } from '../version.js';
 
 export function createGlintbaseMcpServer(): McpServer {
   const server = new McpServer({
     name: 'glintbase',
-    version: '3.0.0',
+    version: CLI_VERSION,
   });
 
   // 1. Register 8 Bundled Skills as MCP Prompts & Resources
@@ -93,7 +94,8 @@ export async function startMcpHttp(
         JSON.stringify({
           status: 'ok',
           server: 'glintbase-mcp',
-          version: '3.0.0',
+          version: CLI_VERSION,
+          score_version: ARS_SCORE_VERSION,
           spec: '2024-11-05',
           endpoint: '/mcp',
           endpoints: {

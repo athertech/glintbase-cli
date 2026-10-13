@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 /**
- * Glintbase Agent Harness CLI (ARS 3.0)
+ * Glintbase Agent Harness CLI (ARS 3.2, scored by @glintbase/scanner-core)
  * Supabase / UNIX-style command-driven CLI for human developers and autonomous coding agents.
  *
  * Commands:
  *   glintbase                   Print overview, workspace status, and command list
  *   glintbase init              Initialize agent resource discovery (.well-known/ard.json)
  *   glintbase doctor            Diagnose environment, framework, and surface readiness
- *   glintbase audit [target]    Full ARS 3.0 audit (119 checks, 4 layers, dynamic denominator)
+ *   glintbase audit [target]    Full ARS 3.2 audit (registry checks, 4 layers, dynamic denominator)
  *   glintbase fix [target]      Autonomous remediation doctor (1-click PR branching & AST fixing)
  *   glintbase simulate [target] Standalone Agent Flight Simulator (Claude Code, Cursor, Perplexity)
  *   glintbase ci [url]          Enterprise CI/CD quality gate, PR drift detector & sticky comments
  *   glintbase generate <spec>   Generate living agent specifications (robots, llms, mcp, auth)
  *   glintbase remediate [spec]  Legacy alias for generate
- *   glintbase check <url> [ids] Targeted re-verification of specific probe checks
+ *   glintbase check <url> [ids] Targeted re-verification of specific registry check ids
+ *   glintbase mcp [lint <url>]  Launch the Glintbase MCP server, or lint a remote MCP server
  *   glintbase bench             Agent Readiness Benchmark (ARB) evaluation suite
  *   glintbase model [target]    Inspect or configure active AI model provider
  *   glintbase connect           Connect AI provider credentials
@@ -38,11 +39,12 @@ import { mcpCommand } from './commands/mcp.js';
 import { brand, renderBrandHeader } from './output/banner.js';
 import { executeCodebaseAudit } from './session/agentBrain.js';
 import { detectFramework } from './ast/frameworkDetector.js';
+import { ARS_LABEL, VERSION_STRING } from './version.js';
 
 const program = new Command()
   .name('glintbase')
-  .description('Glintbase Agent Harness — autonomous agent-readiness auditor (ARS 3.0), Flight Simulator & CI drift shield')
-  .version('3.0.0');
+  .description(`Glintbase Agent Harness — autonomous agent-readiness auditor (${ARS_LABEL}), Flight Simulator & CI drift shield`)
+  .version(VERSION_STRING, '-V, --version', 'Print the CLI version and the ARS score version');
 
 program.addCommand(initCommand);
 program.addCommand(doctorCommand);

@@ -1,5 +1,5 @@
 /**
- * Unit & Integration Tests for Glintbase MCP Server (ARS 3.0)
+ * Unit & Integration Tests for Glintbase MCP Server (ARS 3.2)
  * Verifies tool registrations, skill bundles, prompts, resources, and execution.
  */
 
@@ -14,6 +14,7 @@ import {
   BUNDLED_SKILLS,
   installSkillToDisk,
 } from '../src/mcp/index.js';
+import { CLI_VERSION, ARS_SCORE_VERSION } from '../src/version.js';
 
 describe('Glintbase MCP Server & Bundled Skills Suite', () => {
   const testDir = join(process.cwd(), '.test-mcp-scratch');
@@ -68,7 +69,7 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
   });
 
   describe('2. MCP Server Instance & Registration', () => {
-    it('should instantiate McpServer with name "glintbase" and version "3.0.0"', () => {
+    it('should instantiate McpServer with name "glintbase" and the CLI version', () => {
       const server = createGlintbaseMcpServer();
       expect(server).toBeDefined();
     });
@@ -145,7 +146,8 @@ describe('Glintbase MCP Server & Bundled Skills Suite', () => {
       expect(healthRes.statusCode).toBe(200);
       expect(healthRes.body.status).toBe('ok');
       expect(healthRes.body.server).toBe('glintbase-mcp');
-      expect(healthRes.body.version).toBe('3.0.0');
+      expect(healthRes.body.version).toBe(CLI_VERSION);
+      expect(healthRes.body.score_version).toBe(ARS_SCORE_VERSION);
       expect(healthRes.body.endpoints.sse).toBe('/sse');
       expect(healthRes.body.endpoints.message).toBe('/message');
     });

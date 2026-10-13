@@ -1,11 +1,12 @@
 /**
- * Comprehensive Markdown Report Generator for Glintbase Audit 3.0.
+ * Comprehensive Markdown Report Generator for Glintbase audits (ARS 3.2 via @glintbase/scanner-core).
  * Generates executive-ready, spec-compliant Markdown audit reports
  * with layer health breakdowns, AI semantic evaluation summaries,
  * protocol check details, and actionable remediation diffs.
  */
 
-import type { Ars3Scorecard, CheckResult } from '../core/checks/types.js';
+import type { Ars3Scorecard, CheckResult } from '@glintbase/scanner-core';
+import { ARS_LABEL, CHECK_COUNT, CLI_VERSION } from '../version.js';
 
 export function generateComprehensiveMarkdownReport(
   scorecard: Ars3Scorecard,
@@ -27,7 +28,7 @@ export function generateComprehensiveMarkdownReport(
   const bonusChecks = scorecard.results.filter(r => r.isBonus && r.status === 'pass');
 
   // Remediations list
-  let remediationsBlock = '_None detected! Target adheres to production ARS 3.0 standards._';
+  let remediationsBlock = `_None detected! Target adheres to production ${ARS_LABEL} standards._`;
   if (scorecard.remediations.length > 0) {
     remediationsBlock = scorecard.remediations.map((r, i) => {
       const diffBlock = r.diffSnippet
@@ -119,7 +120,12 @@ ${recsList}`;
   const pPct = pL.applicable ? calcPercent(pL.baseEarned, pL.baseMax) : 'N/A';
   const pStat = pL.applicable ? pL.statusText : 'Excluded from denominator';
 
-  return `# Glintbase Agent Readiness Report (ARS 3.0)
+  const evidence = scorecard.evidence;
+  const evidenceText = evidence
+    ? `${evidence.checksEvaluated} of ${evidence.checksRegistered} checks measured · ${Math.round(evidence.baseCoverage * 100)}% of scored points verified${evidence.lowConfidenceLayers.length ? ` · low evidence: ${evidence.lowConfidenceLayers.join(', ')}` : ''}`
+    : 'N/A';
+
+  return `# Glintbase Agent Readiness Report (${ARS_LABEL})
 
 > Autonomous evaluation of machine-readiness, discovery manifests, Streamable HTTP MCP services, and autonomous LLM tool execution for **\`${target}\`**.
 
@@ -130,7 +136,9 @@ ${recsList}`;
 | Metric | Specification |
 | :--- | :--- |
 | **Target** | \`${target}\` |
-| **ARS Standard** | \`ARS 3.0 (${scorecard.spec.toUpperCase()})\` (${scorecard.results.length} Automated Protocol Checks) |
+| **ARS Standard** | \`${ARS_LABEL} (${(scorecard.spec || 'ars').toUpperCase()})\` (${scorecard.results.length} of ${CHECK_COUNT} registered checks) |
+| **Score Version** | \`${scorecard.version}\` (@glintbase/cli ${CLI_VERSION}) |
+| **Evidence Coverage** | ${evidenceText} |
 | **Overall Score** | **\`${scorecard.score} / 100\`** (Grade ${scorecard.grade} · ${scorecard.gradeLabel}) |
 | **Health Meter** | \`${healthMeter} ${scorecard.score}%\` |
 | **Archetype** | \`${scorecard.archetype.label}\` |
