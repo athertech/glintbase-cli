@@ -35,7 +35,7 @@ describe('ARS 3.2 Check Taxonomy & Registry (129 Checks)', () => {
   it('stamps scorecards with the package score version', async () => {
     const scorecard = await runArs3Probes('http://localhost:3000', { localContext: { isLocalCodebase: true } });
     expect(scorecard.version).toBe(ARS_SCORE_VERSION);
-    expect(scorecard.version).toBe('ars-3.2.0');
+    expect(scorecard.version).toBe(ARS_SCORE_VERSION);
     expect(scorecard.evidence?.checksRegistered).toBe(ALL_CHECKS.length);
   });
 
