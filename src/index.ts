@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Glintbase Agent Harness CLI (ARS 3.2, scored by @glintbase/scanner-core)
+ * Glintbase Agent Harness CLI (ARS 3.3, scored by @glintbase/scanner-core)
  * Supabase / UNIX-style command-driven CLI for human developers and autonomous coding agents.
  *
  * Commands:
  *   glintbase                   Print overview, workspace status, and command list
  *   glintbase init              Initialize agent resource discovery (.well-known/ard.json)
  *   glintbase doctor            Diagnose environment, framework, and surface readiness
- *   glintbase audit [target]    Full ARS 3.2 audit (registry checks, 4 layers, dynamic denominator)
+ *   glintbase audit [target]    Full ARS 3.3 audit (registry checks, 4 layers, dynamic denominator)
  *   glintbase fix [target]      Autonomous remediation doctor (1-click PR branching & AST fixing)
  *   glintbase simulate [target] Standalone Agent Flight Simulator (Claude Code, Cursor, Perplexity)
  *   glintbase ci [url]          Enterprise CI/CD quality gate, PR drift detector & sticky comments

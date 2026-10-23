@@ -1,7 +1,7 @@
 /**
  * CLI Command: glintbase check <url> [checkIds]
  * Targeted re-verification of registry check IDs (fast feedback loop).
- * Runs the ARS 3.2 probe suite (@glintbase/scanner-core) and reads each requested
+ * Runs the ARS 3.3 probe suite (@glintbase/scanner-core) and reads each requested
  * check by exact registry id: "auth" never silently means "auth-md-structure".
  *
  * Exit codes: 0 all verified checks passed · 1 a verified check warned/failed ·

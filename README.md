@@ -1,8 +1,8 @@
 # @glintbase/cli
 
-> **Glintbase Agent Harness (ARS 3.2)** — Autonomous Agent-Readiness Auditor, Flight Simulator & CI Drift Shield.
+> **Glintbase Agent Harness (ARS 3.3)** — Autonomous Agent-Readiness Auditor, Flight Simulator & CI Drift Shield.
 >
-> Scores with [`@glintbase/scanner-core`](https://www.npmjs.com/package/@glintbase/scanner-core), the same ARS 3.2 engine as [scan.glintbase.dev](https://scan.glintbase.dev).
+> Scores with [`@glintbase/scanner-core`](https://www.npmjs.com/package/@glintbase/scanner-core), the same ARS 3.3 engine as [scan.glintbase.dev](https://scan.glintbase.dev).
 
 [![Version](https://img.shields.io/npm/v/@glintbase/cli.svg?style=flat&color=3b82f6)](https://www.npmjs.com/package/@glintbase/cli)
 [![Smithery Badge](https://smithery.ai/badge/@glintbase/cli)](https://smithery.ai/server/@glintbase/cli)
@@ -32,7 +32,7 @@ However, **90%+ of web services fail when accessed by autonomous agents**:
 Run directly with `npx` (no global install required):
 
 ```bash
-# Run a full ARS 3.2 audit against any public URL
+# Run a full ARS 3.3 audit against any public URL
 npx @glintbase/cli audit https://api.example.com
 
 # Or audit your local codebase
@@ -69,10 +69,10 @@ npx skills add athertech/glintbase-cli
 ## What's new in 3.3.0: one engine for CLI and web
 
 - **Same scoring as scan.glintbase.dev.** The CLI no longer ships its own copy of the rules: audits run
-  `runArs3Probes` from `@glintbase/scanner-core` (ARS 3.2, `score_version: ars-3.2.0`, 129 registered checks).
-- **Scores are not comparable with 3.1.x** (ARS 3.0 rules). ARS 3.2 never credits a check it could not
+  `runArs3Probes` from `@glintbase/scanner-core` (ARS 3.3, `score_version: ars-3.3.0`, 137 registered checks).
+- **Scores are not comparable across score versions** (3.1.x used ARS 3.0 rules, 3.4 used ARS 3.3). ARS 3.3 never credits a check it could not
   verify: unverifiable checks are `skip`/`na` and leave the denominator instead of passing by assumption.
-- **Evidence coverage** is printed under every score (`Measured X of 129 checks · Y% of scored points verified`,
+- **Evidence coverage** is printed under every score (`Measured X of 137 checks · Y% of scored points verified`,
   plus any low-evidence layers) and included as `evidence` in `--json` output.
 - **`glintbase mcp lint <url>`** lints a remote MCP server (wire forms, hidden auth gates, schema honesty,
   destructive-tool hints, error envelopes).
@@ -83,7 +83,7 @@ npx skills add athertech/glintbase-cli
 ## Core Commands
 
 ### 1. `glintbase audit [target]`
-Executes the comprehensive **ARS 3.2** (Agent Readiness Standard) audit across the 129 registered checks and 4 operational layers with dynamic denominator scoring. Every score reports its `score_version` and evidence coverage (how many checks could actually be measured):
+Executes the comprehensive **ARS 3.3** (Agent Readiness Standard) audit across the 137 registered checks and 4 operational layers with dynamic denominator scoring. Every score reports its `score_version` and evidence coverage (how many checks could actually be measured):
 - **Layer 1: Discovery** (`robots.txt`, `ard.json`, agent prompt rules, Wikidata claims).
 - **Layer 2: Access & Understanding** (No-JS SSR density, `llms.txt`, `Accept: text/markdown`, Anti-SPA 404 canaries).
 - **Layer 3: Usability & Interoperability** (Streamable HTTP MCP, typed tool schemas, WorkOS `auth.md`, RFC 9728).
@@ -228,7 +228,7 @@ glintbase mcp lint https://api.example.com/api/mcp --json
 ```
 
 #### The 17 MCP Tools Available to Your Agent:
-- `glintbase_audit`: Full ARS 3.2 audit across 4 layers (Discovery, Access, Usability, Payments), with `score_version` and evidence coverage.
+- `glintbase_audit`: Full ARS 3.3 audit across 4 layers (Discovery, Access, Usability, Payments), with `score_version` and evidence coverage.
 - `glintbase_get_score`: Ultra-compact score card (<200 tokens).
 - `glintbase_discover_surfaces`: Discovers all machine entrypoints (`robots.txt`, `llms.txt`, `auth.md`, `ard.json`, `/api/mcp`).
 - `glintbase_simulate_flight`: Multi-agent flight simulator with structured failure diagnostics.
@@ -272,7 +272,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Run Glintbase ARS 3.2 Quality Gate
+      - name: Run Glintbase ARS 3.3 Quality Gate
         uses: ./action.yml
         with:
           target: '.'
@@ -282,7 +282,7 @@ jobs:
 ```
 
 Every pull request receives a sticky Markdown comment highlighting:
-- ARS 3.2 Composite Score & Grade.
+- ARS 3.3 Composite Score & Grade.
 - Score drift delta against the base branch (`+8 pts` or `-12 pts`).
 - Committable GitHub suggestions ready for 1-click merge.
 
@@ -290,7 +290,7 @@ Every pull request receives a sticky Markdown comment highlighting:
 
 ## Specifications & Standards Supported
 
-- **ARS 3.2**: Dynamic-denominator Agent Readiness Standard (129 checks), via `@glintbase/scanner-core`.
+- **ARS 3.3**: Dynamic-denominator Agent Readiness Standard (137 checks), via `@glintbase/scanner-core`.
 - **Model Context Protocol (MCP)**: Streamable HTTP and SSE transports (Anthropic spec 2024-11-05).
 - **W3C WebMCP**: Browser-native `window.modelContext` and dynamic `registerTool` client architecture.
 - **Agentic Resource Discovery (ARD)**: Specification v0.91 (`.well-known/ard.json`).

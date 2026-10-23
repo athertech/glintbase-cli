@@ -1,5 +1,5 @@
 /**
- * Unit & Integration Tests for Glintbase MCP Server (ARS 3.2)
+ * Unit & Integration Tests for Glintbase MCP Server (ARS 3.3)
  * Verifies tool registrations, skill bundles, prompts, resources, and execution.
  */
 

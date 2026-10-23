@@ -26,5 +26,5 @@ export { ARS_LABEL, ARS_SCORE_VERSION };
 /** Number of checks in the ARS registry (the source of truth; never hard-code it). */
 export const CHECK_COUNT: number = getAllChecks().length;
 
-/** e.g. "3.3.0 (ars-3.2.0, @glintbase/scanner-core 3.3.0)" */
+/** e.g. "3.5.0 (ars-3.3.0, @glintbase/scanner-core 3.5.0)" */
 export const VERSION_STRING = `${CLI_VERSION} (${ARS_SCORE_VERSION}, @glintbase/scanner-core ${ENGINE_VERSION})`;

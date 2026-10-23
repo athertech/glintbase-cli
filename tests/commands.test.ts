@@ -151,7 +151,7 @@ describe('CLI Commands: init, doctor, generate, and audit', () => {
 
       await auditCommand.parseAsync(['node', 'test', '.', '--format', 'markdown']);
 
-      expect(loggedOutput).toContain('# Glintbase Agent Readiness Report (ARS 3.2)');
+      expect(loggedOutput).toContain('# Glintbase Agent Readiness Report (ARS 3.3)');
       expect(loggedOutput).toContain('Executive Summary & Scorecard');
       expect(loggedOutput).toContain('Layer-by-Layer Health Breakdown');
       expect(loggedOutput).toContain('Layer 1: Discovery');
@@ -181,7 +181,7 @@ describe('CLI Commands: init, doctor, generate, and audit', () => {
 
       expect(existsSync(reportFile)).toBe(true);
       const content = readFileSync(reportFile, 'utf-8');
-      expect(content).toContain('# Glintbase Agent Readiness Report (ARS 3.2)');
+      expect(content).toContain('# Glintbase Agent Readiness Report (ARS 3.3)');
       expect(content).toContain('Executive Summary & Scorecard');
       expect(content).toContain('Layer 1: Discovery');
     });
@@ -205,12 +205,12 @@ describe('CLI Commands: init, doctor, generate, and audit', () => {
       expect(existsSync(join(testWorkspace, 'robots.txt'))).toBe(true);
 
       const log = execSync('git log -n 1 --oneline', { cwd: testWorkspace, encoding: 'utf-8' });
-      expect(log).toContain('autonomous ARS 3.2 remediation');
+      expect(log).toContain('autonomous ARS 3.3 remediation');
     });
   });
 
   describe('glintbase ci', () => {
-    it('formats ARS 3.2 GitHub Step Summary with layer breakdown and suggestions', () => {
+    it('formats ARS 3.3 GitHub Step Summary with layer breakdown and suggestions', () => {
       const summary = formatGitHubStepSummary({
         score: 82,
         failUnder: 75,
@@ -227,7 +227,7 @@ describe('CLI Commands: init, doctor, generate, and audit', () => {
         ],
       });
 
-      expect(summary).toContain('# 🤖 Glintbase Agent-Readiness CI Gate Report (ARS 3.2)');
+      expect(summary).toContain('# 🤖 Glintbase Agent-Readiness CI Gate Report (ARS 3.3)');
       expect(summary).toContain('82 / 100');
       expect(summary).toContain('Layer 1: Discovery');
       expect(summary).toContain('Committable PR Review Suggestions');

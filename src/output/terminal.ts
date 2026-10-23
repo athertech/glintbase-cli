@@ -1,5 +1,5 @@
 /**
- * Modern Terminal UI for Glintbase CLI (ARS 3.2 engine via @glintbase/scanner-core)
+ * Modern Terminal UI for Glintbase CLI (ARS 3.3 engine via @glintbase/scanner-core)
  * Styled in signature Glintbase Solar Neon Orange with hairline typography,
  * HUD scorecards, step trees, and remediation diff cards.
  */

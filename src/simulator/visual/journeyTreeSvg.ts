@@ -218,7 +218,7 @@ export function generateJourneyTreeSvg(
   ${calloutMarkup}
 
   <!-- Footer Branding -->
-  <text x="40" y="438" fill="#52525B" font-family="ui-monospace, monospace" font-size="9">ARS 3.2 SPECIFICATION • TRACK 3 AGENT FLIGHT REPLAY</text>
+  <text x="40" y="438" fill="#52525B" font-family="ui-monospace, monospace" font-size="9">ARS 3.3 SPECIFICATION • TRACK 3 AGENT FLIGHT REPLAY</text>
   <text x="840" y="438" text-anchor="end" fill="#71717A" font-family="ui-monospace, monospace" font-size="9">scan.glintbase.dev</text>
 </svg>`;
 }

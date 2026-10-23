@@ -49,7 +49,7 @@ describe('URL Policy & SSRF Protection', () => {
     expect(res.url).toBe('https://api.github.com/');
   });
 
-  // ARS 3.2: the CLI uses the engine's URL policy (same as scan.glintbase.dev), which
+  // ARS 3.3: the CLI uses the engine's URL policy (same as scan.glintbase.dev), which
   // refuses loopback targets. The ARS 3.0 CLI-only policy allowed them.
   it('blocks localhost targets (shared engine policy)', () => {
     const res = validateScanUrl('http://localhost:3000');

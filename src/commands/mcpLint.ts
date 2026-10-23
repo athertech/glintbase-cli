@@ -1,7 +1,7 @@
 /**
  * CLI Command: glintbase mcp lint <url>
  * 4-step empirical MCP server lint & reliability gate, using probeMcpServer from
- * @glintbase/scanner-core (the prober behind the ARS 3.2 usability layer).
+ * @glintbase/scanner-core (the prober behind the ARS 3.3 usability layer).
  * Audits 2026-07-28 wire forms, hidden auth gates, schema honesty,
  * destructive tool annotations, and in-channel error envelopes.
  *

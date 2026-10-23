@@ -417,7 +417,7 @@ export const fixCommand = new Command('fix')
       console.log(pc.green(`  ✦ Successfully applied ${appliedCount} remediation(s)!`));
 
       if (targetBranchName && appliedFiles.length > 0) {
-        const commitMsg = 'chore(agent-readiness): autonomous ARS 3.2 remediation via Glintbase [skip ci]';
+        const commitMsg = 'chore(agent-readiness): autonomous ARS 3.3 remediation via Glintbase [skip ci]';
         const committed = commitChanges(appliedFiles, commitMsg, cwd);
         if (committed) {
           console.log(pc.green(`  ✔ Committed ${appliedFiles.length} file(s) to branch '${targetBranchName}'.`));
@@ -431,7 +431,7 @@ export const fixCommand = new Command('fix')
         }
       }
 
-      console.log(pc.dim('  Re-evaluating agent readiness score via authentic ARS 3.2 AST audit...'));
+      console.log(pc.dim('  Re-evaluating agent readiness score via authentic ARS 3.3 AST audit...'));
       const scorecard = await runCodebaseArs3Audit(cwd);
       const hudLayers = [
         {

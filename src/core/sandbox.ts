@@ -1,5 +1,5 @@
 /**
- * In-Memory ARS 3.2 Verification Sandbox & Empirical Agent Simulation Engine.
+ * In-Memory ARS 3.3 Verification Sandbox & Empirical Agent Simulation Engine.
  * Specification: GLINTBASE_AUDIT_3_0_UPGRADE_SPEC.md (Section 5)
  *
  * Holds proposed artifacts in an in-memory virtual filesystem and executes:

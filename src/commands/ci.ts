@@ -1,6 +1,6 @@
 /**
  * CLI Command: glintbase ci
- * Enterprise CI/CD Quality Gate & PR Drift Gate for Autonomous AI Agents (ARS 3.2 via @glintbase/scanner-core).
+ * Enterprise CI/CD Quality Gate & PR Drift Gate for Autonomous AI Agents (ARS 3.3 via @glintbase/scanner-core).
  * Supports dual-mode execution:
  *   - Codebase Mode: Fast AST audit (<150ms) without running servers
  *   - Live URL Mode: Deep network probe suite against running URLs
@@ -350,7 +350,7 @@ export const ciCommand = new Command('ci')
       console.log('');
     }
 
-    // 2. Audit Execution (ARS 3.2 engine)
+    // 2. Audit Execution (ARS 3.3 engine)
     let scorecard: Ars3Scorecard;
 
     if (isUrl) {

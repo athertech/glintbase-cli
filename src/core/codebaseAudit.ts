@@ -1,5 +1,5 @@
 /**
- * Run comprehensive ARS 3.2 agent readiness audit against a local codebase.
+ * Run comprehensive ARS 3.3 agent readiness audit against a local codebase.
  * Evaluates white-box AST, configuration files, headers, routes,
  * and optional semantic artifacts.
  */

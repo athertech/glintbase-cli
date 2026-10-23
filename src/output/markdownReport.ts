@@ -1,5 +1,5 @@
 /**
- * Comprehensive Markdown Report Generator for Glintbase audits (ARS 3.2 via @glintbase/scanner-core).
+ * Comprehensive Markdown Report Generator for Glintbase audits (ARS 3.3 via @glintbase/scanner-core).
  * Generates executive-ready, spec-compliant Markdown audit reports
  * with layer health breakdowns, AI semantic evaluation summaries,
  * protocol check details, and actionable remediation diffs.

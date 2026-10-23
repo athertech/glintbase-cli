@@ -1,8 +1,8 @@
 /**
- * Glintbase MCP Tool Suite (ARS 3.2 engine via @glintbase/scanner-core)
+ * Glintbase MCP Tool Suite (ARS 3.3 engine via @glintbase/scanner-core)
  *
  * 17 Composable, Production-Grade MCP Tools:
- * 1.  glintbase_audit                 Full ARS 3.2 audit (AST + live probes, dynamic denominator)
+ * 1.  glintbase_audit                 Full ARS 3.3 audit (AST + live probes, dynamic denominator)
  * 2.  glintbase_get_score             Ultra-compact score card (<200 tokens)
  * 3.  glintbase_discover_surfaces     Machine entrypoint detection matrix
  * 4.  glintbase_simulate_flight       Multi-agent flight simulator (Claude Code, Cursor, Perplexity, Swarm)
@@ -583,7 +583,7 @@ ${mermaidDiagram}`;
   // ── 9. glintbase_sandbox_validate ──────────────────────────────────────────────
   server.tool(
     'glintbase_sandbox_validate',
-    `Validate one or more prospective artifact files in an in-memory virtual filesystem against ARS 3.2 rules and simulated agent navigation before writing to disk.`,
+    `Validate one or more prospective artifact files in an in-memory virtual filesystem against ARS 3.3 rules and simulated agent navigation before writing to disk.`,
     {
       files: z.array(
         z.object({

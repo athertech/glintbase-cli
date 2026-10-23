@@ -1,5 +1,5 @@
 /**
- * Glintbase MCP Server Engine (ARS 3.2)
+ * Glintbase MCP Server Engine (ARS 3.3)
  *
  * Implements the Anthropic Model Context Protocol server exposing:
  * - 13 glintbase_* agent tools

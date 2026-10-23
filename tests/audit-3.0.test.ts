@@ -1,5 +1,5 @@
 /**
- * ARS audit engine tests, run against @glintbase/scanner-core (ARS 3.2).
+ * ARS audit engine tests, run against @glintbase/scanner-core (ARS 3.3).
  * The registry in the package is the source of truth for counts and check ids.
  */
 
@@ -14,9 +14,9 @@ import { inspectMiddleware } from '../src/ast/inspectors/middlewareInspector.js'
 import { inspectRouteAst } from '../src/ast/inspectors/routeAstInspector.js';
 import { inspectCanaryRoutes } from '../src/ast/inspectors/canaryRouteInspector.js';
 
-describe('ARS 3.2 Check Taxonomy & Registry (129 Checks)', () => {
-  it('registers exactly 129 open protocol checks across 4 layers', () => {
-    expect(ALL_CHECKS.length).toBe(129);
+describe('ARS 3.3 Check Taxonomy & Registry (137 Checks)', () => {
+  it('registers exactly 137 open protocol checks across 4 layers', () => {
+    expect(ALL_CHECKS.length).toBe(137);
     expect(getAllChecks().length).toBe(ALL_CHECKS.length);
     expect(CHECK_COUNT).toBe(ALL_CHECKS.length);
 
@@ -25,9 +25,9 @@ describe('ARS 3.2 Check Taxonomy & Registry (129 Checks)', () => {
     const l3 = getChecksForLayer('usability');
     const l4 = getChecksForLayer('payments');
 
-    expect(l1.length).toBe(17);
-    expect(l2.length).toBe(45);
-    expect(l3.length).toBe(61);
+    expect(l1.length).toBe(18);
+    expect(l2.length).toBe(47);
+    expect(l3.length).toBe(66);
     expect(l4.length).toBe(6);
     expect(l1.length + l2.length + l3.length + l4.length).toBe(ALL_CHECKS.length);
   });
@@ -121,7 +121,7 @@ describe('Mathematical Scoring Engine & Dynamic Denominators', () => {
   });
 });
 
-describe('Letter Grade Alignment (ARS 3.2 Standard)', () => {
+describe('Letter Grade Alignment (ARS 3.3 Standard)', () => {
   it('correctly maps scores to ARS letter grade bands', () => {
     expect(getArsGrade(98).grade).toBe('A+');
     expect(getArsGrade(95).grade).toBe('A+');
@@ -135,7 +135,7 @@ describe('Letter Grade Alignment (ARS 3.2 Standard)', () => {
   });
 });
 
-// ARS 3.2: a declared MCP route without a reachable server cannot be verified, so the
+// ARS 3.3: a declared MCP route without a reachable server cannot be verified, so the
 // kind-specific tool check is 'skip' (excluded, never passed by assumption). ARS 3.0
 // credited it as a pass. The kind still selects which rubric applies.
 describe('Kind-Aware MCP Evaluation Rubric', () => {
@@ -203,7 +203,7 @@ describe('WorkOS auth.md 8-Stage Parser & Non-Mutating GET Simulation', () => {
     expect(structCheck?.status).toBe('pass');
     expect(structCheck?.earnedPoints).toBe(2);
 
-    // ARS 3.2: the walkthrough needs live PRM -> AS metadata; a local handbook alone is
+    // ARS 3.3: the walkthrough needs live PRM -> AS metadata; a local handbook alone is
     // not evidence, so the bonus is 'na' (ARS 3.0 passed it from the file text).
     const simCheck = scorecard.results.find(c => c.checkId === 'auth-md-walkthrough-simulation');
     expect(simCheck).toBeDefined();

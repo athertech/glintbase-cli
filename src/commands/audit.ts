@@ -1,6 +1,6 @@
 /**
  * CLI Command: glintbase audit [target] [options]
- * ARS 3.2 Agent Readiness audit, scored by @glintbase/scanner-core (the scan.glintbase.dev engine).
+ * ARS 3.3 Agent Readiness audit, scored by @glintbase/scanner-core (the scan.glintbase.dev engine).
  * Claude Code / OpenCode HUD aesthetics, dynamic denominators, kind-aware MCP, and simulation.
  */
 
